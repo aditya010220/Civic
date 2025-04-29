@@ -5,6 +5,9 @@ import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import connectDB from './db/mongo.js';
 
+//Routes 
+import authRoute from './routes/authRoute.js';
+
 dotenv.config();
 connectDB();
 
@@ -18,6 +21,9 @@ app.get('/', (req, res) => {
   res.send('Hello World!');
 }
 );
+
+
+app.use('/api/users', authRoute);
 
 
 const PORT = process.env.PORT || 4000;

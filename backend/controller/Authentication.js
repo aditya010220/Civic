@@ -69,7 +69,6 @@ export const registerUser = async (req, res) => {
     
     await newUser.save();
     
-    // Generate JWT token
     const token = jwt.sign(
       { id: newUser._id, email: newUser.email, role: newUser.role },
       JWT_SECRET,
@@ -148,8 +147,7 @@ export const loginUser = async (req, res) => {
  */
 export const getUserProfile = async (req, res) => {
   try {
-    const userId = req.params.id || req.userId; // Get from params or auth token
-    
+    const userId = req.params.id || req.userId; 
     const user = await User.findById(userId)
       .select('-passwordHash') // Exclude password
       .populate('campaignsCreated', 'title shortDescription status')
@@ -167,9 +165,7 @@ export const getUserProfile = async (req, res) => {
   }
 };
 
-/**
- * Update user profile
- */
+
 export const updateUserProfile = async (req, res) => {
   try {
     const userId = req.params.id || req.userId; // Get from params or auth token
@@ -280,13 +276,11 @@ export const submitGovVerification = async (req, res) => {
     user.govVerification = {
       method,
       govId,
-      isVerified: false // Will be verified by admin or verification system
+      isVerified: false 
     };
     
     await user.save();
     
-    // Here you would typically trigger your verification process
-    // This is a placeholder for your actual verification logic
     
     res.status(200).json({
       message: 'Verification details submitted successfully',
@@ -298,92 +292,7 @@ export const submitGovVerification = async (req, res) => {
   }
 };
 
-/**
- * Follow a user
- */
-export const followUser = async (req, res) => {
-  try {
-    const { targetUserId } = req.params;
-    const userId = req.userId;
-    
-    // Cannot follow yourself
-    if (targetUserId === userId) {
-      return res.status(400).json({ message: 'Cannot follow yourself' });
-    }
-    
-    // Find target user
-    const targetUser = await User.findById(targetUserId);
-    if (!targetUser) {
-      return res.status(404).json({ message: 'User to follow not found' });
-    }
-    
-    // Find current user
-    const currentUser = await User.findById(userId);
-    if (!currentUser) {
-      return res.status(404).json({ message: 'Current user not found' });
-    }
-    
-    // Check if already following
-    if (currentUser.following.includes(targetUserId)) {
-      return res.status(400).json({ message: 'Already following this user' });
-    }
-    
-    // Update following array for current user
-    await User.findByIdAndUpdate(userId, {
-      $push: { following: targetUserId }
-    });
-    
-    // Increment followers count for target user
-    await User.findByIdAndUpdate(targetUserId, {
-      $inc: { followersCount: 1 }
-    });
-    
-    res.status(200).json({ message: 'User followed successfully' });
-  } catch (error) {
-    console.error('Follow user error:', error);
-    res.status(500).json({ message: 'Failed to follow user', error: error.message });
-  }
-};
 
-/**
- * Unfollow a user
- */
-export const unfollowUser = async (req, res) => {
-  try {
-    const { targetUserId } = req.params;
-    const userId = req.userId;
-    
-    // Find current user
-    const currentUser = await User.findById(userId);
-    if (!currentUser) {
-      return res.status(404).json({ message: 'Current user not found' });
-    }
-    
-    // Check if actually following
-    if (!currentUser.following.includes(targetUserId)) {
-      return res.status(400).json({ message: 'Not following this user' });
-    }
-    
-    // Update following array for current user
-    await User.findByIdAndUpdate(userId, {
-      $pull: { following: targetUserId }
-    });
-    
-    // Decrement followers count for target user
-    await User.findByIdAndUpdate(targetUserId, {
-      $inc: { followersCount: -1 }
-    });
-    
-    res.status(200).json({ message: 'User unfollowed successfully' });
-  } catch (error) {
-    console.error('Unfollow user error:', error);
-    res.status(500).json({ message: 'Failed to unfollow user', error: error.message });
-  }
-};
-
-/**
- * Get user activity log
- */
 export const getUserActivity = async (req, res) => {
   try {
     const userId = req.params.id || req.userId;
@@ -416,37 +325,6 @@ export const getUserActivity = async (req, res) => {
   }
 };
 
-/**
- * Update expertise
- */
-export const updateExpertise = async (req, res) => {
-  try {
-    const { expertise } = req.body;
-    const userId = req.userId;
-    
-    if (!Array.isArray(expertise)) {
-      return res.status(400).json({ message: 'Expertise must be an array' });
-    }
-    
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { $set: { expertise } },
-      { new: true }
-    ).select('-passwordHash');
-    
-    if (!updatedUser) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    
-    res.status(200).json({
-      message: 'Expertise updated successfully',
-      expertise: updatedUser.expertise
-    });
-  } catch (error) {
-    console.error('Update expertise error:', error);
-    res.status(500).json({ message: 'Failed to update expertise', error: error.message });
-  }
-};
 
 /**
  * Delete user account
@@ -485,31 +363,9 @@ export const deleteAccount = async (req, res) => {
   }
 };
 
-/**
- * Get users by expertise (for admin or campaign creator finding team members)
- */
-export const getUsersByExpertise = async (req, res) => {
-  try {
-    const { field } = req.query;
-    
-    if (!field) {
-      return res.status(400).json({ message: 'Expertise field is required' });
-    }
-    
-    const users = await User.find({
-      'expertise.field': field
-    }).select('fullName profilePicture bio expertise');
-    
-    res.status(200).json(users);
-  } catch (error) {
-    console.error('Get users by expertise error:', error);
-    res.status(500).json({ message: 'Failed to get users', error: error.message });
-  }
-};
 
-/**
- * Calculate and update user impact score
- */
+
+
 export const updateImpactScore = async (req, res) => {
   try {
     const userId = req.params.id || req.userId;
@@ -567,9 +423,7 @@ export const updateImpactScore = async (req, res) => {
   }
 };
 
-/**
- * Send password reset email
- */
+
 export const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -621,14 +475,12 @@ export const forgotPassword = async (req, res) => {
   }
 };
 
-/**
- * Reset password with token
- */
+
 export const resetPassword = async (req, res) => {
   try {
     const { token, newPassword } = req.body;
     
-    // Verify token
+    
     let decoded;
     try {
       decoded = jwt.verify(token, JWT_SECRET);
@@ -679,7 +531,7 @@ export const resetPassword = async (req, res) => {
   }
 };
 
-// Add these new functions to your exports
+
 export default {
   registerUser,
   loginUser,
@@ -687,12 +539,11 @@ export default {
   updateUserProfile,
   changePassword,
   submitGovVerification,
-  followUser,
-  unfollowUser,
+ 
   getUserActivity,
-  updateExpertise,
+  
   deleteAccount,
-  getUsersByExpertise,
+ 
   updateImpactScore,
   forgotPassword,
   resetPassword
