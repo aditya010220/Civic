@@ -6,13 +6,26 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 // Middleware to authenticate user and attach user info to request
 export const authMiddleware = async (req, res, next) => {
   try {
-    // Get token from request headers
+    // Log headers for debugging
+    // console.log('Request Headers:', req.headers);
+    
+    // Try to get token from different sources
+    let token;
+    
+    // 1. Check Authorization header
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ message: 'Authentication required. No token provided.' });
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } 
+    // 2. Check cookies if no Authorization header
+    else if (req.cookies && req.cookies.token) {
+      token = req.cookies.token;
     }
     
-    const token = authHeader.split(' ')[1];
+    // If no token found in any location
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required. No token provided.' });
+    }
     
     // Verify token
     const decoded = jwt.verify(token, JWT_SECRET);
@@ -23,6 +36,8 @@ export const authMiddleware = async (req, res, next) => {
       return res.status(404).json({ message: 'User not found' });
     }
     
+    // Attach user info to the request
+    req.user = user;
     req.userId = user._id.toString();
     req.userEmail = user.email;
     req.userRole = user.role;

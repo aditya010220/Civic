@@ -19,7 +19,6 @@ export const AuthProvider = ({ children }) => {
         const token = localStorage.getItem('token');
         
         if (token) {
-          // Configure axios to use token in header
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
           
           // Fetch user profile
@@ -266,6 +265,18 @@ export const AuthProvider = ({ children }) => {
     return currentUser.role === role;
   };
 
+  // Generate greeting message based on time of day
+  const getGreetingMessage = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) {
+      return "Good morning";
+    } else if (hour < 18) {
+      return "Good afternoon";
+    } else {
+      return "Good evening";
+    }
+  };
+
   // Context value
   const value = {
     currentUser,
@@ -283,7 +294,8 @@ export const AuthProvider = ({ children }) => {
     resetPassword,
     getUserProfile,
     isAuthenticated,
-    hasRole
+    hasRole,
+    getGreetingMessage // Add the new function here
   };
 
   return (

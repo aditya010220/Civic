@@ -4,6 +4,7 @@ import { createServer } from 'http';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import connectDB from './db/mongo.js';
+import campaignRoute from './routes/campaignRoutes.js'; // Assuming you have a campaignRoute
 
 //Routes 
 import authRoute from './routes/authRoute.js';
@@ -24,6 +25,7 @@ app.get('/', (req, res) => {
 
 
 app.use('/api/users', authRoute);
+app.use('/api/campaigns', campaignRoute); // Assuming you have a campaignRoute
 
 
 const PORT = process.env.PORT || 4000;

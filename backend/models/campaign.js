@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 
 const campaignSchema = new mongoose.Schema({
-  // Basic campaign information
+  // Basic campaign information (Step 1)
   title: { 
     type: String, 
     required: true, 
@@ -20,53 +20,11 @@ const campaignSchema = new mongoose.Schema({
   },
   createdBy: { 
     type: mongoose.Schema.Types.ObjectId, 
+    
+    
     ref: 'User',
     required: true 
   },
-
-  // Media content
-  coverImage: { 
-    type: String, // URL to image
-    default: null
-  },
-  coverImage: { 
-    type: String, // URL to image
-    default: null,
-    
-  },
-  mediaGallery: [{
-    type: { 
-      type: String, 
-      enum: ['image', 'video'], 
-      required: true 
-    },
-    url: { 
-      type: String, 
-      required: true 
-    },
-    caption: String,
-    order: { 
-      type: Number, 
-      default: 0 
-    }, 
-    uploadedAt: { 
-      type: Date, 
-      default: Date.now 
-    }
-  }],  
-
-  // Team management
-    teamMembers: [{
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    role: {
-      type: String,
-      enum: ['leader', 'co-leader', 'activity-updater', 'social-media', 'finance', 'volunteer-coordinator', 'analyst', 'designer']
-    },
-    permissions: [String], // Specific permissions for each role
-    assignedAt: { type: Date, default: Date.now }
-  }],
-
-  // Campaign classification
   category: { 
     type: String, 
     required: true,
@@ -77,15 +35,85 @@ const campaignSchema = new mongoose.Schema({
     ]
   },
   tags: [String],
+  startDate: { 
+    type: Date, 
+    default: Date.now 
+  },
+  endDate: Date,
   
-  // Campaign status and lifecycle
+  // Campaign status and creation progress tracking
   status: { 
     type: String, 
     enum: ['draft', 'active', 'completed', 'archived', 'rejected'], 
     default: 'draft' 
   },
-  startDate: Date,
-  endDate: Date,
+  creationStep: {
+    type: Number,
+    enum: [1, 2, 3, 4, 5],
+    default: 1
+  },
+  creationComplete: {
+    type: Boolean,
+    default: false
+  },
+  
+  // Team management (Step 2)
+  team: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'CampaignTeam'
+  },
+  
+  // Victims information (Step 3)
+  hasVictims: {
+    type: Boolean,
+    default: false
+  },
+  victims: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'CampaignVictim'
+  }],
+  
+  // Evidence and proof (Step 4)
+  evidenceType: {
+    type: String,
+    enum: ['photos', 'videos', 'documents', 'testimonial', 'mixed'],
+    default: 'mixed'
+  },
+  
+  // Reference to evidence documents
+  evidence: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'CampaignEvidence'
+  }],
+
+  // Media content
+  coverImage: { 
+    type: String, // URL to image
+    default: null
+  },
+  mediaGallery: [{
+    type: { 
+      type: String, 
+      enum: ['image', 'video', 'document', 'audio'], 
+      required: true 
+    },
+    url: { 
+      type: String, 
+      required: true 
+    },
+    caption: String,
+    description: String,
+    mimeType: String,
+    fileSize: Number,
+    order: { 
+      type: Number, 
+      default: 0 
+    }, 
+    uploadedAt: { 
+      type: Date, 
+      default: Date.now 
+    }
+  }],
   
   // Location information
   location: {
@@ -257,24 +285,24 @@ const campaignSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
   
-  
+  // Featured status
   isFeatured: { type: Boolean, default: false },
   featuredUntil: Date
 });
 
-//indexing is good do it more
-
+// Indexing
 campaignSchema.index({ title: 'text', description: 'text', tags: 'text' });
 campaignSchema.index({ status: 1, createdAt: -1 });
 campaignSchema.index({ 'location.city': 1, 'location.state': 1, 'location.country': 1 });
 campaignSchema.index({ category: 1 });
 campaignSchema.index({ createdBy: 1 });
+campaignSchema.index({ creationStep: 1, creationComplete: 1 });
 
-// Pre-save middleware to update timestamps
-campaignSchema.pre('save', function(next) {
-  this.updatedAt = Date.now();
-  next();
-});
+// // Pre-save middleware to update timestamps
+// campaignSchema.pre('save', function(next) {
+//   this.updatedAt = Date.now();
+//   next();
+// });
 
 // Virtual for calculating progress percentage
 campaignSchema.virtual('progressPercentage').get(function() {
@@ -288,7 +316,6 @@ campaignSchema.virtual('progressPercentage').get(function() {
     case 'awareness':
       currentNumber = this.engagementMetrics.views;
       break;
-    
     default:
       currentNumber = 0;
   }
@@ -316,5 +343,7 @@ campaignSchema.methods.isTrending = function() {
   return (engagementScore + brandBoost) / daysSinceCreation > 100;
 };
 
-const Campaign = mongoose.model('Campaign', campaignSchema);
+// Check if the model already exists before defining it
+const Campaign = mongoose.models.Campaign || mongoose.model('Campaign', campaignSchema);
+
 export default Campaign;
