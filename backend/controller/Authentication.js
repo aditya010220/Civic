@@ -1,6 +1,7 @@
 import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import Campaign from '../models/Campaign.js';
 import mongoose from 'mongoose';
 import transporter from '../config/nodemailer.js'; // Import the configured transporter
 
@@ -23,7 +24,7 @@ const sendVerificationEmail = async (email, fullName) => {
           <p>Thank you for joining our community of changemakers. We're excited to see the impact you'll make!</p>
           <p>Your account has been created successfully. You can now sign in and start exploring campaigns or create your own.</p>
           <div style="margin: 30px 0; text-align: center;">
-            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard" 
+            <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard" 
                style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">
               Explore Campaigns
             </a>
