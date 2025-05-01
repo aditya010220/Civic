@@ -240,6 +240,7 @@ const CampaignDetail = () => {
             <ActivitySection 
               campaign={currentCampaign}
               formatDate={formatDate}
+              isUserAuthorized={isUserAuthorized()}
             />
           )}
           

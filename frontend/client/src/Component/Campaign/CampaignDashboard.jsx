@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import CampaignCreationForm from './CampaignForm';
 import { 
   FaChartLine, FaUsers, FaEye, FaFolderOpen, FaPencilAlt, 
-  FaSearch, FaFilter, FaTags, FaCalendarAlt, FaArrowUp, FaArrowDown, FaListUl, FaThLarge
+  FaSearch, FaFilter, FaTags, FaCalendarAlt, FaArrowUp, FaArrowDown, FaListUl, FaThLarge, FaPlus
 } from 'react-icons/fa';
 
 // Campaign status badge with appropriate colors
@@ -313,7 +313,9 @@ const CampaignDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const [featuredCampaign, setFeaturedCampaign] = useState(null);
-  
+  const [isUserAuthorized, setIsUserAuthorized] = useState(true); // Example state for authorization
+  const [showAddModal, setShowAddModal] = useState(false); // Example state for modal
+
   useEffect(() => {
     // Load initial data when component mounts
     getUserCampaigns();
@@ -787,6 +789,16 @@ const CampaignDashboard = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Add Activity Button */}
+      {isUserAuthorized && (
+        <button 
+          onClick={() => setShowAddModal(true)}
+          className="flex items-center justify-center px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 shadow-sm transition-colors"
+        >
+          <FaPlus className="mr-2" /> Add Activity
+        </button>
       )}
     </div>
   );
