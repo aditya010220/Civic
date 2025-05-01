@@ -1,18 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../Context/authContext';
 import { useCampaign } from '../Context/campaignContext';
-import ProfileGlimpse from '../Component/Profile/ProfileGlimpse';
 import SideNavbar from '../Component/Navbar/sideNavbar';
-import LoadingAnimation from '../Component/Loading/CustomLoading.jsx';
-import CampaignDashboard from '../Component/Campaign/CampaignDashboard';
+import LoadingAnimation from '../Component/Loading/CustomLoading';
+import ProfileGlimpse from '../Component/Profile/ProfileGlimpse';
+import NewsFeed from '../Component/Dashboard/NewsFeed';
+import CampaignsAroundYou from '../Component/Dashboard/CompaignAroundYou';
+import TrendingCampaigns from '../Component/Dashboard/TrendingCampaigns';
+import { FaBell, FaPlus, FaClipboardList } from 'react-icons/fa';
+import { Link } from 'react-router-dom';
 
 function Dashboard() {
   const { currentUser, getGreetingMessage } = useAuth();
-  const { getUserCampaigns, getCampaignStats, isLoading: campaignsLoading } = useCampaign();
+  const { 
+    getUserCampaigns, 
+    getCampaignStats, 
+    campaignStats, 
+    userCampaigns, 
+    isLoading: campaignsLoading 
+  } = useCampaign();
   
   const [isLoading, setIsLoading] = useState(true);
   const [userData, setUserData] = useState(null);
-  const [activeTab, setActiveTab] = useState('campaigns');
   
   // Use ref to track if data has been fetched
   const initialDataFetched = useRef(false);
@@ -45,7 +54,98 @@ function Dashboard() {
     } else {
       setIsLoading(true);
     }
-  }, [currentUser]); // Only depend on currentUser, not the context functions
+  }, [currentUser, getUserCampaigns, getCampaignStats]);
+
+  // User Campaign Dashboard Component
+  const UserCampaignDashboard = () => {
+    return (
+      <div className="bg-white shadow-md rounded-lg overflow-hidden border border-gray-200 h-full">
+        <div className="flex justify-between items-center p-5 border-b border-gray-200">
+          <div className="flex items-center">
+            <FaClipboardList className="text-gray-700 mr-3" />
+            <h2 className="text-xl font-bold text-gray-900">My Campaigns</h2>
+          </div>
+          <Link 
+            to="/campaigns/create" 
+            className="flex items-center bg-black text-white px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors text-sm"
+          >
+            <FaPlus className="mr-1" size={12} />
+            New Campaign
+          </Link>
+        </div>
+        
+        <div className="p-5 overflow-auto" style={{ maxHeight: "calc(70vh - 150px)" }}>
+          {userCampaigns && userCampaigns.length > 0 ? (
+            <div className="space-y-4">
+              {userCampaigns.slice(0, 5).map(campaign => (
+                <Link to={`/campaigns/${campaign._id}`} key={campaign._id} className="block">
+                  <div className="flex rounded-lg overflow-hidden border border-gray-200 hover:shadow-md transition-shadow">
+                    <div className="w-1/4 bg-gray-100 h-24">
+                      <img 
+                        src={campaign.coverImage || 'https://images.unsplash.com/photo-1496449903678-68ddcb189a24?auto=format&fit=crop&w=500&q=60'}
+                        alt={campaign.title} 
+                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                      />
+                    </div>
+                    
+                    <div className="w-3/4 p-3">
+                      <div className="flex justify-between">
+                        <span className="text-xs font-medium px-2 py-1 bg-gray-100 rounded-full text-gray-700">
+                          {campaign.category || 'General'}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {new Date(campaign.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                      
+                      <h3 className="font-medium text-gray-900 mt-2 line-clamp-1">{campaign.title}</h3>
+                      <p className="text-sm text-gray-600 mt-1 line-clamp-1">{campaign.shortDescription}</p>
+                      
+                      <div className="mt-2 flex justify-between text-xs">
+                        <div className="flex items-center text-gray-700">
+                          <span>{campaign.engagementMetrics?.supporters || 0} supporters</span>
+                        </div>
+                        
+                        <div className="flex items-center">
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            campaign.status === 'active' 
+                              ? 'bg-green-100 text-green-800'
+                              : campaign.status === 'pending'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {campaign.status || 'Draft'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-10">
+              <p className="text-gray-600">You haven't created any campaigns yet.</p>
+              <Link 
+                to="/campaigns/create" 
+                className="mt-4 inline-block bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors"
+              >
+                Create Your First Campaign
+              </Link>
+            </div>
+          )}
+          
+          {userCampaigns && userCampaigns.length > 5 && (
+            <div className="mt-4 text-center">
+              <Link to="/campaigns" className="text-sm text-gray-600 hover:text-black">
+                View all campaigns ({userCampaigns.length})
+              </Link>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   if (isLoading) {
     return (
@@ -59,99 +159,60 @@ function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex">
+    <div className="min-h-screen bg-white flex">
       {/* Side Navigation */}
       <SideNavbar />
       
       {/* Main Content */}
-      <div className="flex-1 md:ml-64">
-        {/* Header Section with User Profile */}
-        <header className="bg-white shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-            <h1 className="text-xl font-semibold text-gray-900">Dashboard</h1>
-            <div className="flex items-center gap-4">
-              <span className="text-gray-600 hidden sm:inline">
-                {getGreetingMessage()}, {userData.fullName}
-              </span>
+      <div className="flex-1 md:ml-64 p-6 flex flex-col" style={{ height: "calc(100vh - 24px)" }}>
+        {/* Greeting Header */}
+        <header className="mb-4">
+          <h1 className="text-2xl font-bold text-gray-900">
+            {getGreetingMessage()}, {userData.fullName}
+          </h1>
+          <p className="text-sm text-gray-600 mt-1">
+            Here's what's happening with your campaigns and in your area
+          </p>
+        </header>
+        
+        {/* Top section - Three Sections Row (increased height from 30% to 40%) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6" style={{ height: "40%" }}>
+          {/* Profile Glimpse */}
+          <div className="lg:col-span-3 h-full overflow-hidden">
+            <div className="h-full overflow-auto bg-white rounded-lg shadow-md border border-gray-200">
               <ProfileGlimpse userData={userData} />
             </div>
           </div>
           
-          {/* Tabbed Navigation */}
-          <div className="border-b border-gray-200">
-            <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex space-x-8">
-              <button
-                className={`${
-                  activeTab === 'campaigns'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-                onClick={() => setActiveTab('campaigns')}
-              >
-                Campaigns
-              </button>
-              <button
-                className={`${
-                  activeTab === 'profile'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-                onClick={() => setActiveTab('profile')}
-              >
-                Profile
-              </button>
-            </nav>
+          {/* News Feed */}
+          <div className="lg:col-span-5 h-full overflow-hidden">
+            <div className="h-full overflow-auto">
+              <NewsFeed />
+            </div>
           </div>
-        </header>
-        
-        {/* Main Content Area */}
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          {/* Campaigns Tab Content */}
-          {activeTab === 'campaigns' && (
-            <div>
-              <CampaignDashboard />
-            </div>
-          )}
           
-          {/* Profile Tab Content */}
-          {activeTab === 'profile' && (
-            <div className="bg-white shadow rounded-lg p-6">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">Profile Information</h2>
-              <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center">
-                  <span className="text-sm font-medium text-gray-500 sm:w-1/4">Full Name</span>
-                  <span className="text-sm text-gray-900">{userData.fullName}</span>
-                </div>
-                <div className="flex flex-col sm:flex-row sm:items-center">
-                  <span className="text-sm font-medium text-gray-500 sm:w-1/4">Email</span>
-                  <span className="text-sm text-gray-900">{userData.email}</span>
-                </div>
-                {userData.location && (
-                  <div className="flex flex-col sm:flex-row sm:items-center">
-                    <span className="text-sm font-medium text-gray-500 sm:w-1/4">Location</span>
-                    <span className="text-sm text-gray-900">{userData.location}</span>
-                  </div>
-                )}
-                {userData.joinDate && (
-                  <div className="flex flex-col sm:flex-row sm:items-center">
-                    <span className="text-sm font-medium text-gray-500 sm:w-1/4">Member Since</span>
-                    <span className="text-sm text-gray-900">
-                      {new Date(userData.joinDate).toLocaleDateString()}
-                    </span>
-                  </div>
-                )}
-                <div className="pt-4">
-                  <button
-                    type="button"
-                    className="px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                  >
-                    Edit Profile
-                  </button>
-                </div>
-              </div>
+          {/* Campaigns Around You */}
+          <div className="lg:col-span-4 h-full overflow-hidden">
+            <div className="h-full overflow-auto">
+              <CampaignsAroundYou />
             </div>
-          )}
-        </main>
+          </div>
+        </div>
+        
+        {/* Bottom section - Campaign Dashboard (70%) and Trending (30%) */}
+        <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 flex-1" style={{ height: "calc(60% - 80px)" }}>
+          {/* User Campaign Dashboard - 70% width (7/10 cols) */}
+          <div className="lg:col-span-7 h-full overflow-hidden">
+            <UserCampaignDashboard />
+          </div>
+          
+          {/* Trending Campaigns - 30% width (3/10 cols) */}
+          <div className="lg:col-span-3 h-full overflow-hidden">
+            <div className="h-full overflow-auto">
+              <TrendingCampaigns />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

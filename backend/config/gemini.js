@@ -105,6 +105,190 @@ export const validateEvidence = async (evidence) => {
 };
 
 /**
+ * Verify evidence media for authenticity using AI
+ * @param {Object} evidence - The evidence object with media file
+ * @returns {Promise<Object>} - Verification results
+ */
+export const verifyEvidenceMedia = async (evidence) => {
+  if (!genAI) {
+    console.warn('Gemini AI not initialized. Skipping evidence media verification.');
+    return {
+      isAuthentic: false,
+      verificationNotes: 'AI verification not available',
+      confidenceScore: 0,
+      isFlagged: false
+    };
+  }
+
+  try {
+    // Skip verification if no media file
+    if (!evidence.mediaFile || !evidence.mediaFile.url) {
+      return {
+        isAuthentic: false,
+        verificationNotes: 'No media file to verify',
+        confidenceScore: 0,
+        isFlagged: false
+      };
+    }
+
+    // Use the right model depending on the evidence type
+    const modelName = evidence.evidenceType === 'photo' || evidence.evidenceType === 'document' 
+      ? 'gemini-pro-vision' 
+      : 'gemini-pro';
+    
+    const model = genAI.getGenerativeModel({ model: modelName });
+    
+    // For photo/image evidence, use vision capabilities
+    if ((evidence.evidenceType === 'photo' || evidence.evidenceType === 'document') && evidence.mediaFile.url) {
+      // Create parts with image URL
+      const imageParts = [
+        {
+          inlineData: {
+            mimeType: evidence.mediaFile.fileType,
+            data: await fetchImageAsBase64(evidence.mediaFile.url) // Implement this helper function
+          }
+        },
+        {
+          text: `Please analyze this image that was submitted as evidence for a civic campaign.
+            Title: "${evidence.title}"
+            Description: "${evidence.description}"
+            
+            Please determine:
+            1. If this appears to be AI-generated content or manipulated
+            2. If the image appears authentic or shows signs of being fabricated
+            3. Your confidence level in this assessment
+            
+            Response format:
+            {
+              "isAuthentic": boolean,
+              "confidenceScore": number (0-1),
+              "analysisNotes": string,
+              "detectedIssues": [strings],
+              "mediaType": string
+            }`
+        }
+      ];
+
+      // Generate content with image analysis
+      const result = await model.generateContent(imageParts);
+      const response = await result.response;
+      const text = response.text();
+      
+      // Extract JSON from the response
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('Could not parse JSON from AI response');
+      }
+      
+      // Parse the JSON response
+      const analysis = JSON.parse(jsonMatch[0]);
+      
+      return {
+        isAuthentic: analysis.isAuthentic,
+        verificationNotes: analysis.analysisNotes || '',
+        detectedIssues: analysis.detectedIssues || [],
+        confidenceScore: analysis.confidenceScore,
+        mediaType: analysis.mediaType || evidence.evidenceType,
+        isFlagged: !analysis.isAuthentic && analysis.confidenceScore > 0.65
+      };
+    } 
+    // For testimonial/text evidence, use text analysis
+    else if (evidence.evidenceType === 'testimonial' && evidence.testimonialContent) {
+      // We already have validateEvidence for text content
+      return await validateEvidence(evidence);
+    }
+    // For video/audio evidence
+    else if ((evidence.evidenceType === 'video' || evidence.evidenceType === 'audio') && evidence.mediaFile.url) {
+      // For now, we can do a simple analysis with the file information and description
+      // In a full implementation, you'd want to analyze frames or audio waveforms
+      
+      const prompt = `
+        I need you to analyze metadata about a ${evidence.evidenceType} file that was uploaded as evidence.
+        
+        File information:
+        - Title: "${evidence.title}"
+        - Description: "${evidence.description}"
+        - File type: ${evidence.mediaFile.fileType}
+        - File size: ${evidence.mediaFile.fileSize} bytes
+        - Duration: ${evidence.mediaFile.duration || 'unknown'} seconds
+        
+        Based on this information, please assess:
+        1. If this appears suspicious or likely to be manipulated content
+        2. What factors might indicate authenticity issues
+        
+        Please provide your analysis in JSON format:
+        {
+          "isAuthentic": boolean (likelihood of authenticity),
+          "confidenceScore": number (0-1),
+          "analysisNotes": string,
+          "detectedIssues": [strings]
+        }`;
+      
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
+      
+      // Extract JSON from the response
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('Could not parse JSON from AI response');
+      }
+      
+      // Parse the JSON response
+      const analysis = JSON.parse(jsonMatch[0]);
+      
+      return {
+        isAuthentic: analysis.isAuthentic,
+        verificationNotes: analysis.analysisNotes || '',
+        detectedIssues: analysis.detectedIssues || [],
+        confidenceScore: analysis.confidenceScore,
+        isFlagged: !analysis.isAuthentic && analysis.confidenceScore > 0.65
+      };
+    }
+    
+    // Default case for unsupported evidence types
+    return {
+      isAuthentic: false,
+      verificationNotes: 'Unsupported evidence type for verification',
+      confidenceScore: 0,
+      isFlagged: false
+    };
+  } catch (error) {
+    console.error('Error verifying evidence media with AI:', error);
+    return {
+      isAuthentic: false,
+      verificationNotes: 'Error during AI media verification: ' + error.message,
+      confidenceScore: 0,
+      isFlagged: true // Flag for manual review when verification fails
+    };
+  }
+};
+
+/**
+ * Helper function to fetch an image and convert it to base64
+ */
+async function fetchImageAsBase64(imageUrl) {
+  try {
+    // For Cloudinary or remote URLs
+    if (imageUrl.startsWith('http')) {
+      const response = await fetch(imageUrl);
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      return buffer.toString('base64');
+    } 
+    // For local files (though this shouldn't be common in your setup)
+    else {
+      const fs = await import('fs/promises');
+      const buffer = await fs.readFile(imageUrl);
+      return buffer.toString('base64');
+    }
+  } catch (error) {
+    console.error('Error fetching image:', error);
+    throw error;
+  }
+}
+
+/**
  * Process evidence through AI validation and update the database record
  */
 export const processEvidenceValidation = async (evidenceId, Campaign, CampaignEvidence) => {
