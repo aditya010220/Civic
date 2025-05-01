@@ -134,7 +134,7 @@ const campaignEvidenceSchema = new mongoose.Schema({
   
   status: {
     type: String,
-    enum: ['submitted', 'under_review', 'accepted', 'rejected', 'pending_more_info'],
+    enum: ['submitted', 'under_review', 'accepted', 'rejected', 'pending_more_info', 'pending_verification'],
     default: 'submitted'
   },
   

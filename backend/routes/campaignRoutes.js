@@ -1,4 +1,5 @@
 import express from 'express';
+import multer from 'multer';
 import {
   createCampaign,
   updateCampaignStep,
@@ -6,46 +7,51 @@ import {
   getCampaign,
   getUserCampaigns,
   getTeamMemberCampaigns,
-  getUserCampaignStats
+  getUserCampaignStats,
+  getCampaignEvidence,
+  updateCampaignCover // Add this import
 } from '../controller/Campaign.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
+// Configure multer for file storage
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage,
+  limits: { 
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+    files: 5 // Maximum 5 files per upload
+  }
+});
+
 // --- Campaign Creation & Management ---
-
-// POST /api/campaigns - Create a new campaign (Step 1)
 router.post('/', authMiddleware, createCampaign);
-
-// PUT /api/campaigns/:id/step - Update campaign step-by-step
 router.put('/:id/step', authMiddleware, updateCampaignStep);
 
 // --- User Campaign Management ---
-// IMPORTANT: Put specific routes BEFORE parameter routes to ensure proper matching
-
-// GET /api/campaigns/my-campaigns - Get all campaigns created by the current user
 router.get('/my-campaigns', authMiddleware, getUserCampaigns);
-
-// GET /api/campaigns/team-campaigns - Get campaigns where user is a team member
 router.get('/team-campaigns', authMiddleware, getTeamMemberCampaigns);
-
-// GET /api/campaigns/campaign-stats - Get user's campaign statistics
 router.get('/campaign-stats', authMiddleware, getUserCampaignStats);
 
 // --- Evidence Management ---
-
-// POST /api/campaigns/:id/evidence - Upload evidence for a campaign
 router.post(
-  '/:id/evidence',
+  '/:campaignId/evidence',
   authMiddleware,
+  upload.array('files'),
   uploadEvidence
 );
 
-// --- Generic/Parameter routes MUST come AFTER specific routes ---
+// --- Cover Image Management --- (Add this new route)
+router.post(
+  '/:campaignId/cover-image',
+  authMiddleware,
+  upload.single('coverImage'),
+  updateCampaignCover
+);
 
-// GET /api/campaigns/:id - Get a specific campaign's details
+// --- Generic/Parameter routes ---
 router.get('/:id', getCampaign);
-
-// --- Other Routes ---
+router.get('/:campaignId/evidence', getCampaignEvidence);
 
 export default router;

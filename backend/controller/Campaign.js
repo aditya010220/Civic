@@ -8,8 +8,7 @@ import { validateEvidence } from '../config/gemini.js'; // Keep if you have this
 import mongoose from 'mongoose';
 import { promises as fs } from 'fs'; // Standard Node.js module
 import path from 'path'; // Standard Node.js module
-
-// Removed Queue and logger imports
+import { Readable } from 'stream';
 
 /**
  * Create a new campaign (Step 1) - Enhanced
@@ -17,88 +16,78 @@ import path from 'path'; // Standard Node.js module
 export const createCampaign = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
+  console.log(`[INFO] User ${req.user._id} is creating a new campaign`);
 
   try {
-    // Validate required fields
+    // Validate required fields for Step 1
     const { title, description, shortDescription, category } = req.body;
 
     if (!title || !description || !shortDescription || !category) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields',
+        message: 'Missing required fields for Step 1',
         requiredFields: ['title', 'description', 'shortDescription', 'category']
       });
     }
 
-    // Sanitize and trim input data
-    const sanitizedData = {
-      ...req.body,
-      title: title.trim(),
-      description: description.trim(),
-      shortDescription: shortDescription.trim(),
-      category: category.trim()
-      // Add trimming/sanitization for other fields as needed
-    };
-
-    // Create campaign
+    // Create the campaign with initial data and set the creationStep to 1
     const campaign = new Campaign({
-      ...sanitizedData,
+      title,
+      description,
+      shortDescription,
+      category,
+      tags: req.body.tags || [],
+      location: req.body.location || {},
       createdBy: req.user._id,
-      status: 'draft',
-      creationStep: 1 // Start at step 1
+      creationStep: 1, // Set initial step to 1 (not 0)
+      status: 'draft'
     });
 
     await campaign.save({ session });
 
-    // Create initial campaign team with creator as leader
+    // Create a team for the campaign with proper leader structure
     const team = new CampaignTeam({
       campaign: campaign._id,
+      // Set the leader with a proper structure containing userId
       leader: {
-        userId: req.user._id,
-        name: req.user.fullName || req.user.displayName || 'Campaign Leader', // Fallback name
-        email: req.user.email,
-        acceptedInvite: true, // Creator automatically accepts
-        joinedAt: new Date()
-      }
+        userId: req.user._id, // This is what was missing
+        name: req.user.fullName || req.user.email,
+        role: 'Campaign Leader',
+        acceptedInvite: true,
+        invitedAt: new Date()
+      },
+      coLeader: null,
+      socialMediaCoordinator: null,
+      volunteerCoordinator: null,
+      financeManager: null,
+      additionalMembers: []
     });
 
     await team.save({ session });
 
-    // Link team to campaign
+    // Update campaign with team reference
     campaign.team = team._id;
     await campaign.save({ session });
 
+    // Commit transaction
     await session.commitTransaction();
+    session.endSession();
 
-    console.log(`[INFO] Campaign ${campaign._id} created by user ${req.user._id}`);
-
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
-      message: 'Campaign created successfully',
+      message: 'Campaign created successfully with initial data',
       data: campaign
     });
   } catch (error) {
     await session.abortTransaction();
-    console.error(`[ERROR] Campaign creation error: ${error.message}`, { error, userId: req.user?._id });
-
-    if (error.name === 'ValidationError') {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation error',
-        errors: Object.values(error.errors).map(err => ({
-          field: err.path,
-          message: err.message
-        }))
-      });
-    }
-
+    session.endSession();
+    
+    console.error('Create campaign error:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Error creating campaign',
       error: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
-  } finally {
-    session.endSession();
   }
 };
 
@@ -391,45 +380,50 @@ export const updateCampaignStep = async (req, res) => {
 };
 
 /**
- * Upload evidence for a campaign - improved for multi-file upload support
+ * Upload evidence for a campaign - improved with direct blob upload and async validation
  */
 export const uploadEvidence = async (req, res) => {
-  let tempFiles = [];
-
   try {
     const { campaignId } = req.params;
-    const { title, description, source, evidenceType, relatedVictims = [] } = req.body;
-
-    if (!mongoose.Types.ObjectId.isValid(campaignId)) {
-      return res.status(400).json({ success: false, message: 'Invalid campaign ID' });
+    
+    console.log(`[INFO] User ${req.user._id} is uploading evidence for campaign ${campaignId}`);
+    console.log('Request body:', req.body);
+    console.log('Files received:', req.files ? `${req.files.length} files` : (req.file ? "1 file" : "no files"));
+    
+    if (!campaignId || !mongoose.Types.ObjectId.isValid(campaignId)) {
+      return res.status(400).json({ success: false, message: 'Invalid or missing campaign ID' });
     }
-
+    
+    // Check if request body is missing
+    if (!req.body) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Missing request body. Make sure you\'re sending form data correctly.' 
+      });
+    }
+    
+    const { title, description, source, evidenceType } = req.body;
+    const relatedVictims = req.body.relatedVictims || [];
+    
     // Handle both single file and multiple files
     const files = req.files || (req.file ? [req.file] : []);
-
+    
     if (files.length === 0 && evidenceType !== 'testimonial') {
       return res.status(400).json({
         success: false,
         message: 'No files uploaded. For testimonial evidence, please provide testimonialContent.'
       });
     }
-
+    
     if (!title || !description || !source || !evidenceType) {
       return res.status(400).json({
         success: false,
         message: 'Missing required fields',
-        requiredFields: ['title', 'description', 'source', 'evidenceType']
+        requiredFields: ['title', 'description', 'source', 'evidenceType'],
+        received: { title, description, source, evidenceType }
       });
     }
-
-    // For testimonial evidence, require content
-    if (evidenceType === 'testimonial' && !req.body.testimonialContent) {
-      return res.status(400).json({
-        success: false,
-        message: 'Testimonial evidence requires testimonialContent field'
-      });
-    }
-
+    
     // Verify campaign exists and user has permission
     const campaign = await Campaign.findById(campaignId)
       .populate({
@@ -441,22 +435,7 @@ export const uploadEvidence = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Campaign not found' });
     }
 
-    // Verify related victims if provided
-    if (relatedVictims.length > 0) {
-      const validVictims = await CampaignVictim.find({
-        _id: { $in: relatedVictims },
-        campaign: campaignId
-      }).select('_id');
-
-      if (validVictims.length !== relatedVictims.length) {
-        return res.status(400).json({
-          success: false,
-          message: 'One or more related victims are invalid or do not belong to this campaign'
-        });
-      }
-    }
-
-    // Check permissions (allow team members to upload)
+    // Check permissions - Allow team members to upload
     const isCreator = campaign.createdBy.toString() === req.user._id.toString();
     let isTeamMember = false;
 
@@ -488,8 +467,16 @@ export const uploadEvidence = async (req, res) => {
       });
     }
 
-    // For testimonial evidence, create a record without file upload
+    // For testimonial evidence
     if (evidenceType === 'testimonial') {
+      if (!req.body.testimonialContent) {
+        return res.status(400).json({
+          success: false,
+          message: 'Testimonial evidence requires testimonialContent field'
+        });
+      }
+      
+      // Create testimonial evidence
       const evidence = new CampaignEvidence({
         campaign: campaignId,
         title,
@@ -500,128 +487,171 @@ export const uploadEvidence = async (req, res) => {
         testimonialContent: req.body.testimonialContent,
         relatedVictims: relatedVictims.length > 0 ? relatedVictims : undefined,
         addedBy: req.user._id,
-        status: 'submitted',
+        status: 'pending_verification',
         permissions: {
-          isPublic: req.body.isPublic !== false // Default to public unless explicitly set to false
+          isPublic: req.body.isPublic === 'true'
         }
       });
 
       await evidence.save();
-
-      // Add to campaign's evidence array
+      
+      // Add to campaign's evidence array immediately
       await Campaign.findByIdAndUpdate(campaignId, {
         $push: { evidence: evidence._id },
         $set: {
           updatedAt: new Date(),
-          creationStep: Math.max(campaign.creationStep, 4)
+          creationStep: Math.max(campaign.creationStep || 0, 3)
         }
       });
-
-      // Queue background validation if enabled
+      
+      // Schedule AI validation in the background without blocking the response
       if (process.env.ENABLE_AI_VALIDATION === 'true') {
-        await evidenceQueue.add('validateEvidence', {
-          evidenceId: evidence._id,
-          campaignId
-        });
+        // We don't want to await this - let it run in the background
+        validateEvidence(evidence)
+          .then(async (validationResults) => {
+            // Update evidence with validation results
+            evidence.verification = {
+              isVerified: validationResults.isVerified,
+              verificationMethod: 'technical_analysis',
+              verificationDate: new Date(),
+              verificationNotes: validationResults.verificationNotes,
+              confidenceScore: validationResults.confidenceScore
+            };
+            
+            evidence.status = validationResults.isFlagged ? 'under_review' : 'accepted';
+            
+            await evidence.save();
+            console.log(`[INFO] Testimonial evidence ${evidence._id} validated in background`);
+          })
+          .catch(err => {
+            console.error(`[ERROR] Failed to validate testimonial evidence ${evidence._id}:`, err);
+          });
       }
 
       return res.status(201).json({
         success: true,
-        message: 'Evidence uploaded successfully',
+        message: 'Testimonial evidence added successfully',
         data: evidence
       });
     }
 
-    // Process file uploads
-    for (const file of files) {
-      let uploadResult;
-
-      // If using multer disk storage, we'll have file.path
-      // If using multer memory storage, we'll have file.buffer
-      if (evidenceType === 'photo' || evidenceType === 'image') {
-        // Upload to Cloudinary
-        if (file.buffer) {
-          // Create temporary file from buffer for cloudinary
-          const tempFilePath = path.join(
-            process.env.TEMP_DIR || '/tmp',
-            `${Date.now()}-${file.originalname}`
-          );
-          await fs.writeFile(tempFilePath, file.buffer);
-          uploadResult = await cloudinary.uploader.upload(tempFilePath, {
-            folder: `campaign-evidence/${campaignId}`,
-            resource_type: 'image'
+    // For file uploads - process directly without creating temp files
+    const evidenceList = [];
+    
+    // Process files in parallel
+    await Promise.all(files.map(async (file) => {
+      try {
+        let uploadResult;
+        
+        // Upload directly from buffer to either Cloudinary or Vercel Blob
+        if (evidenceType === 'photo' || evidenceType === 'image') {
+          // For images, upload to Cloudinary directly from buffer
+          uploadResult = await new Promise((resolve, reject) => {
+            const uploadStream = cloudinary.uploader.upload_stream(
+              {
+                folder: `campaign-evidence/${campaignId}`,
+                resource_type: 'image'
+              },
+              (error, result) => {
+                if (error) return reject(error);
+                resolve(result);
+              }
+            );
+            
+            // Create a stream from the buffer using the imported Readable
+            const bufferStream = Readable.from(file.buffer);
+            bufferStream.pipe(uploadStream);
           });
-          tempFiles.push(tempFilePath); // Add to tempFiles for later deletion
         } else {
-          uploadResult = await cloudinary.uploader.upload(file.path, {
-            folder: `campaign-evidence/${campaignId}`,
-            resource_type: 'image'
-          });
+          // For other file types, upload to Vercel Blob
+          // Pass the buffer directly to the uploadToBlob function
+          uploadResult = await uploadToBlob(
+            file.buffer, 
+            {
+              filename: file.originalname,
+              contentType: file.mimetype,
+              directory: `campaign-evidence/${campaignId}`
+            }
+          );
         }
-      } else {
-        // Upload to Vercel Blob
-        uploadResult = await uploadToBlob(file, {
-          directory: `campaign-evidence/${campaignId}`
+        
+        // Create evidence record
+        const evidence = new CampaignEvidence({
+          campaign: campaignId,
+          title,
+          description,
+          evidenceType,
+          source,
+          dateCollected: new Date(),
+          mediaFile: {
+            url: uploadResult.secure_url || uploadResult.url,
+            fileName: file.originalname,
+            fileSize: file.size,
+            fileType: file.mimetype,
+            dimensions: uploadResult.width && uploadResult.height ? {
+              width: uploadResult.width,
+              height: uploadResult.height
+            } : undefined,
+            duration: uploadResult.duration,
+            thumbnailUrl: uploadResult.thumbnail_url
+          },
+          addedBy: req.user._id,
+          status: 'pending_verification',
+          permissions: {
+            isPublic: req.body.isPublic === 'true'
+          }
         });
-      }
-
-      // Create evidence record
-      const evidence = new CampaignEvidence({
-        campaign: campaignId,
-        title,
-        description,
-        evidenceType,
-        source,
-        dateCollected: new Date(),
-        mediaFile: {
-          url: uploadResult.secure_url || uploadResult.url,
-          fileName: file.originalname,
-          fileSize: file.size,
-          fileType: file.mimetype,
-          dimensions: uploadResult.width && uploadResult.height ? {
-            width: uploadResult.width,
-            height: uploadResult.height
-          } : undefined,
-          duration: uploadResult.duration,
-          thumbnailUrl: uploadResult.thumbnail_url
-        },
-        addedBy: req.user._id,
-        status: 'submitted',
-        permissions: {
-          isPublic: req.body.isPublic !== false // Default to public unless explicitly set to false
+        
+        await evidence.save();
+        evidenceList.push(evidence);
+        
+        // Add to campaign's evidence array
+        await Campaign.findByIdAndUpdate(campaignId, {
+          $push: { evidence: evidence._id },
+          $set: { 
+            updatedAt: new Date(),
+            creationStep: Math.max(campaign.creationStep || 0, 3)
+          }
+        });
+        
+        // Schedule async validation if enabled
+        if (process.env.ENABLE_AI_VALIDATION === 'true') {
+          // Start validation in background without blocking response
+          setTimeout(() => {
+            validateEvidence(evidence)
+              .then(async (validationResults) => {
+                evidence.verification = {
+                  isVerified: validationResults.isVerified,
+                  verificationMethod: 'technical_analysis',
+                  verificationDate: new Date(),
+                  verificationNotes: validationResults.verificationNotes,
+                  confidenceScore: validationResults.confidenceScore
+                };
+                
+                evidence.status = validationResults.isFlagged ? 'under_review' : 'accepted';
+                await evidence.save();
+                console.log(`[INFO] File evidence ${evidence._id} validated in background`);
+              })
+              .catch(error => {
+                console.error(`[ERROR] Failed to validate file evidence ${evidence._id}:`, error);
+              });
+          }, 100); // Small delay to not block the main thread
         }
-      });
-
-      await evidence.save();
-
-      // Add to campaign's evidence array
-      await Campaign.findByIdAndUpdate(campaignId, {
-        $push: { evidence: evidence._id },
-        $set: { updatedAt: new Date() }
-      });
-
-      // Queue background validation if enabled
-      if (process.env.ENABLE_AI_VALIDATION === 'true') {
-        await evidenceQueue.add('validateEvidence', {
-          evidenceId: evidence._id,
-          campaignId
-        });
+      } catch (fileError) {
+        console.error(`[ERROR] Processing file upload error:`, fileError);
+        // Continue with other files even if one fails
       }
-    }
-
-    // If we've reached here, delete any temporary files
-    for (const tempFile of tempFiles) {
-      await fs.unlink(tempFile);
-    }
-
+    }));
+    
     res.status(201).json({
       success: true,
-      message: 'Evidence uploaded successfully',
-      data: evidence
+      message: `${evidenceList.length} evidence item(s) uploaded successfully`,
+      data: evidenceList
     });
+    
   } catch (error) {
     console.error('Upload evidence error:', error);
-
+    
     res.status(500).json({
       success: false,
       message: error.message || 'Error uploading evidence',
@@ -932,6 +962,202 @@ export const getUserCampaignStats = async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message || 'Error retrieving campaign statistics',
+      error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+};
+
+/**
+ * Get evidence for a campaign
+ */
+export const getCampaignEvidence = async (req, res) => {
+  try {
+    const { campaignId } = req.params;
+    
+    console.log(`[INFO] Getting evidence for campaign ${campaignId}`);
+    
+    if (!campaignId || !mongoose.Types.ObjectId.isValid(campaignId)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid campaign ID' 
+      });
+    }
+    
+    // Check if campaign exists
+    const campaign = await Campaign.findById(campaignId);
+    
+    if (!campaign) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Campaign not found' 
+      });
+    }
+    
+    // Get evidence for this campaign
+    const evidence = await CampaignEvidence.find({ campaign: campaignId })
+      .sort({ createdAt: -1 });
+    
+    console.log(`[INFO] Found ${evidence.length} evidence items for campaign ${campaignId}`);
+    
+    return res.status(200).json({
+      success: true,
+      message: 'Evidence retrieved successfully',
+      data: evidence
+    });
+  } catch (error) {
+    console.error('Error fetching campaign evidence:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error fetching campaign evidence',
+      error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+};
+
+/**
+ * Update campaign cover image - Fixed version
+ */
+export const updateCampaignCover = async (req, res) => {
+  try {
+    const { campaignId } = req.params;
+    
+    if (!mongoose.Types.ObjectId.isValid(campaignId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid campaign ID format'
+      });
+    }
+    
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'No image file provided' 
+      });
+    }
+
+    // Verify campaign exists
+    const campaign = await Campaign.findById(campaignId);
+    if (!campaign) {
+      return res.status(404).json({
+        success: false,
+        message: 'Campaign not found'
+      });
+    }
+
+    // Check user permission (only creator or team member with permission)
+    const isCreator = campaign.createdBy.toString() === req.user._id.toString();
+    
+    // Check if user is a team member with appropriate permissions
+    let isTeamMember = false;
+    if (campaign.team) {
+      const team = await CampaignTeam.findById(campaign.team);
+      
+      if (team) {
+        if (team.leader && team.leader.userId && team.leader.userId.toString() === req.user._id.toString()) {
+          isTeamMember = true;
+        }
+        
+        if (team.coLeader && team.coLeader.userId && team.coLeader.userId.toString() === req.user._id.toString()) {
+          isTeamMember = true;
+        }
+        
+        if (team.additionalMembers && team.additionalMembers.length > 0) {
+          const hasPermission = team.additionalMembers.some(member => 
+            member.userId && 
+            member.userId.toString() === req.user._id.toString() && 
+            member.permissions && 
+            member.permissions.canEditCampaign
+          );
+          
+          if (hasPermission) {
+            isTeamMember = true;
+          }
+        }
+      }
+    }
+    
+    if (!isCreator && !isTeamMember) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to update this campaign'
+      });
+    }
+
+    // Upload to Cloudinary using the existing configuration
+    let uploadResult;
+    try {
+      // Create upload stream - Fixed to use ES modules approach instead of require
+      uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: 'campaign_covers',
+            transformation: [
+              { width: 1200, height: 630, crop: 'fill', quality: 'auto' }
+            ],
+            resource_type: 'auto'
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        
+        // Using the imported Readable stream from 'stream' module
+        const readableStream = new Readable();
+        readableStream.push(req.file.buffer);
+        readableStream.push(null);
+        readableStream.pipe(stream);
+      });
+      
+      console.log('Cloudinary upload result:', uploadResult);
+      
+    } catch (uploadError) {
+      console.error('Cloudinary upload error:', uploadError);
+      
+      // Try Vercel Blob as fallback with fixed pathname parameter
+      try {
+        // Extract file extension from mimetype
+        const fileExt = req.file.mimetype.split('/')[1] || 'jpg';
+        const fileName = `campaign-cover-${campaignId}-${Date.now()}.${fileExt}`;
+        
+        const blobResult = await uploadToBlob(
+          req.file.buffer, 
+          {
+            filename: fileName,
+            contentType: req.file.mimetype,
+            pathname: `/campaign_covers/${fileName}` // Add required pathname parameter
+          }
+        );
+        
+        uploadResult = { secure_url: blobResult.url };
+        console.log('Vercel Blob upload result:', blobResult);
+      } catch (blobError) {
+        console.error('Vercel Blob upload error:', blobError);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to upload image to storage services'
+        });
+      }
+    }
+
+    // Update campaign with new cover URL
+    campaign.coverImage = uploadResult.secure_url;
+    await campaign.save();
+
+    // Log successful update
+    console.log(`[INFO] Campaign ${campaignId} cover image updated by user ${req.user._id}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Cover image updated successfully',
+      coverImage: campaign.coverImage
+    });
+    
+  } catch (error) {
+    console.error('Error updating cover image:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error updating cover image',
       error: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }

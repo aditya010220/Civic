@@ -1,555 +1,351 @@
-import React, { useState } from 'react';
-import { useCampaign } from '../../Context/campaignContext';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useCampaign } from '../../Context/campaignContext';
+import CustomLoading from '../Loading/CustomLoading';
+import axios from 'axios'; // Make sure axios is imported
 
-// Step 1: Basic Campaign Information
-const Step1Form = ({ formData, updateFormData, nextStep }) => {
-  const categories = [
-    'environment', 'education', 'healthcare', 'human-rights',
-    'animal-welfare', 'poverty', 'equality', 'infrastructure',
-    'governance', 'public-safety', 'other'
-  ];
+// Step components
+import BasicInfoStep from './BasicInfoStep';
+import TeamSetupStep from './TeamSetupStep';
+import EvidenceStep from './EvidenceStep';
+import VictimsStep from './VictimStep';
+import ReviewStep from './ReviewStep';
 
-  return (
-    <div className="p-6">
-      <h2 className="text-lg font-medium text-gray-900 mb-4">Campaign Details</h2>
-      
-      <div className="space-y-4">
-        <div>
-          <label htmlFor="title" className="block text-sm font-medium text-gray-700">
-            Campaign Title
-          </label>
-          <input
-            type="text"
-            id="title"
-            name="title"
-            value={formData.title}
-            onChange={updateFormData}
-            required
-            maxLength={100}
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            placeholder="Give your campaign a clear, compelling title"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="shortDescription" className="block text-sm font-medium text-gray-700">
-            Short Description
-          </label>
-          <input
-            type="text"
-            id="shortDescription"
-            name="shortDescription"
-            value={formData.shortDescription}
-            onChange={updateFormData}
-            required
-            maxLength={200}
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            placeholder="A brief one-liner explaining your campaign (max 200 chars)"
-          />
-          <p className="mt-1 text-xs text-gray-500">
-            {formData.shortDescription?.length || 0}/200 characters
-          </p>
-        </div>
-
-        <div>
-          <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-            Full Description
-          </label>
-          <textarea
-            id="description"
-            name="description"
-            value={formData.description}
-            onChange={updateFormData}
-            required
-            rows={4}
-            maxLength={5000}
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            placeholder="Explain the issue in detail, your goals, and why people should support your campaign"
-          />
-          <p className="mt-1 text-xs text-gray-500">
-            {formData.description?.length || 0}/5000 characters
-          </p>
-        </div>
-
-        <div>
-          <label htmlFor="category" className="block text-sm font-medium text-gray-700">
-            Category
-          </label>
-          <select
-            id="category"
-            name="category"
-            value={formData.category}
-            onChange={updateFormData}
-            required
-            className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-          >
-            <option value="">Select a category</option>
-            {categories.map(category => (
-              <option key={category} value={category}>
-                {category.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label htmlFor="tags" className="block text-sm font-medium text-gray-700">
-            Tags (Optional)
-          </label>
-          <input
-            type="text"
-            id="tags"
-            name="tags"
-            value={formData.tags}
-            onChange={updateFormData}
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            placeholder="Enter tags separated by commas (e.g., climate, local, urgent)"
-          />
-          <p className="mt-1 text-xs text-gray-500">
-            Add relevant keywords to help people find your campaign
-          </p>
-        </div>
-      </div>
-      
-      <div className="mt-6 flex justify-end">
-        <button
-          type="button"
-          onClick={nextStep}
-          disabled={!formData.title || !formData.description || !formData.shortDescription || !formData.category}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
-        >
-          Continue
-        </button>
-      </div>
-    </div>
-  );
-};
-
-// Step 2: Campaign Location and Timeline
-const Step2Form = ({ formData, updateFormData, prevStep, nextStep }) => {
-  const locationTypes = [
-    { value: 'local', label: 'Local (City/Town)' },
-    { value: 'state', label: 'State/Province' },
-    { value: 'national', label: 'National' },
-    { value: 'international', label: 'International' }
-  ];
-
-  const handleLocationChange = (e) => {
-    const { name, value } = e.target;
-    updateFormData({
-      target: {
-        name: name.includes('location.') ? name : `location.${name}`,
-        value
-      }
-    });
-  };
-
-  return (
-    <div className="p-6">
-      <h2 className="text-lg font-medium text-gray-900 mb-4">Location & Timeline</h2>
-      
-      <div className="space-y-4">
-        <div>
-          <label htmlFor="locationType" className="block text-sm font-medium text-gray-700">
-            Campaign Scope
-          </label>
-          <select
-            id="locationType"
-            name="location.type"
-            value={formData.location?.type || 'local'}
-            onChange={handleLocationChange}
-            className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-          >
-            {locationTypes.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {(formData.location?.type === 'local' || formData.location?.type === 'state') && (
-          <div>
-            <label htmlFor="city" className="block text-sm font-medium text-gray-700">
-              City/Town
-            </label>
-            <input
-              type="text"
-              id="city"
-              name="city"
-              value={formData.location?.city || ''}
-              onChange={handleLocationChange}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            />
-          </div>
-        )}
-
-        {(formData.location?.type === 'local' || formData.location?.type === 'state' || formData.location?.type === 'national') && (
-          <div>
-            <label htmlFor="state" className="block text-sm font-medium text-gray-700">
-              State/Province
-            </label>
-            <input
-              type="text"
-              id="state"
-              name="state"
-              value={formData.location?.state || ''}
-              onChange={handleLocationChange}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            />
-          </div>
-        )}
-
-        <div>
-          <label htmlFor="country" className="block text-sm font-medium text-gray-700">
-            Country
-          </label>
-          <input
-            type="text"
-            id="country"
-            name="country"
-            value={formData.location?.country || ''}
-            onChange={handleLocationChange}
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">
-            Target End Date (Optional)
-          </label>
-          <input
-            type="date"
-            id="endDate"
-            name="endDate"
-            value={formData.endDate || ''}
-            onChange={updateFormData}
-            min={new Date().toISOString().split('T')[0]}
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-          />
-          <p className="mt-1 text-xs text-gray-500">
-            When do you aim to achieve your campaign goal?
-          </p>
-        </div>
-
-        <div>
-          <label htmlFor="targetGoal" className="block text-sm font-medium text-gray-700">
-            Campaign Goal Type
-          </label>
-          <select
-            id="targetGoal"
-            name="targetGoal"
-            value={formData.targetGoal || 'signatures'}
-            onChange={updateFormData}
-            className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-          >
-            <option value="signatures">Signatures</option>
-            <option value="awareness">Awareness</option>
-            <option value="policy_change">Policy Change</option>
-            <option value="fundraising">Fundraising</option>
-            <option value="volunteer_recruitment">Volunteer Recruitment</option>
-          </select>
-        </div>
-
-        <div>
-          <label htmlFor="targetNumber" className="block text-sm font-medium text-gray-700">
-            Target Goal Number
-          </label>
-          <input
-            type="number"
-            id="targetNumber"
-            name="targetNumber"
-            value={formData.targetNumber || 1000}
-            onChange={updateFormData}
-            min={1}
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-          />
-          <p className="mt-1 text-xs text-gray-500">
-            How many {formData.targetGoal === 'signatures' ? 'signatures' : 
-                       formData.targetGoal === 'awareness' ? 'views' : 
-                       formData.targetGoal === 'fundraising' ? 'dollars' : 
-                       formData.targetGoal === 'volunteer_recruitment' ? 'volunteers' : 
-                       'supporters'} are you aiming for?
-          </p>
-        </div>
-      </div>
-      
-      <div className="mt-6 flex justify-between">
-        <button
-          type="button"
-          onClick={prevStep}
-          className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          Back
-        </button>
-        <button
-          type="button"
-          onClick={nextStep}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          Continue
-        </button>
-      </div>
-    </div>
-  );
-};
-
-// Step 3: Campaign Summary & Creation
-const Step3Form = ({ formData, prevStep, onSubmit, isLoading, error }) => {
-  // Format the campaign data for display
-  const formatLocation = () => {
-    const { location } = formData;
-    if (!location) return 'Not specified';
-    
-    const parts = [];
-    if (location.city) parts.push(location.city);
-    if (location.state) parts.push(location.state);
-    if (location.country) parts.push(location.country);
-    
-    return parts.length > 0 ? parts.join(', ') : 'Not specified';
-  };
-
-  return (
-    <div className="p-6">
-      <h2 className="text-lg font-medium text-gray-900 mb-4">Review & Create Campaign</h2>
-      
-      {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
-          {error}
-        </div>
-      )}
-      
-      <div className="bg-gray-50 rounded-md p-4 space-y-3">
-        <div>
-          <h3 className="text-sm font-medium text-gray-500">Campaign Title</h3>
-          <p className="mt-1 text-sm text-gray-900">{formData.title}</p>
-        </div>
-        
-        <div>
-          <h3 className="text-sm font-medium text-gray-500">Short Description</h3>
-          <p className="mt-1 text-sm text-gray-900">{formData.shortDescription}</p>
-        </div>
-        
-        <div>
-          <h3 className="text-sm font-medium text-gray-500">Category</h3>
-          <p className="mt-1 text-sm text-gray-900 capitalize">{formData.category?.replace('-', ' ')}</p>
-        </div>
-        
-        <div>
-          <h3 className="text-sm font-medium text-gray-500">Location</h3>
-          <p className="mt-1 text-sm text-gray-900">{formatLocation()}</p>
-        </div>
-        
-        <div>
-          <h3 className="text-sm font-medium text-gray-500">Campaign Goal</h3>
-          <p className="mt-1 text-sm text-gray-900">
-            {formData.targetNumber?.toLocaleString()} {formData.targetGoal?.replace('_', ' ')}
-          </p>
-        </div>
-        
-        {formData.endDate && (
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Target End Date</h3>
-            <p className="mt-1 text-sm text-gray-900">
-              {new Date(formData.endDate).toLocaleDateString()}
-            </p>
-          </div>
-        )}
-        
-        {formData.tags && (
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Tags</h3>
-            <div className="mt-1 flex flex-wrap gap-1">
-              {formData.tags.split(',').map((tag, index) => (
-                <span 
-                  key={index} 
-                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
-                >
-                  {tag.trim()}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-      
-      <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded">
-        <p className="text-sm text-blue-700">
-          <span className="font-medium">What happens next?</span> After creating your campaign, you'll be taken to the campaign setup wizard where you can:
-        </p>
-        <ul className="mt-2 text-sm text-blue-700 list-disc list-inside space-y-1">
-          <li>Add team members</li>
-          <li>Add evidence and documentation</li>
-          <li>Set up communication channels</li>
-          <li>Publish your campaign when ready</li>
-        </ul>
-      </div>
-      
-      <div className="mt-6 flex justify-between">
-        <button
-          type="button"
-          onClick={prevStep}
-          className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          Back
-        </button>
-        <button
-          type="button"
-          onClick={onSubmit}
-          disabled={isLoading}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed"
-        >
-          {isLoading ? (
-            <>
-              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              Creating...
-            </>
-          ) : (
-            'Create Campaign'
-          )}
-        </button>
-      </div>
-    </div>
-  );
-};
-
-// Main multi-step form component
-const CampaignCreationForm = ({ onSuccess, onCancel }) => {
-  const { createCampaign, isLoading, error, clearError } = useCampaign();
+const CampaignForm = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState({
+  const { createCampaign, updateCampaignStep, isLoading, error } = useCampaign();
+  
+  // Add formError state
+  const [formError, setFormError] = useState(null);
+  
+  // Campaign data state - will be built up across steps
+  const [campaignData, setCampaignData] = useState({
+    // Step 1: Basic info
     title: '',
-    shortDescription: '',
     description: '',
+    shortDescription: '',
     category: '',
-    tags: '',
+    tags: [],
     location: {
       type: 'local',
       city: '',
       state: '',
       country: ''
     },
-    targetGoal: 'signatures',
-    targetNumber: 1000
+    
+    // Step 2: Team
+    team: {
+      coLeader: null,
+      socialMediaCoordinator: null,
+      volunteerCoordinator: null,
+      financeManager: null,
+      additionalMembers: []
+    },
+    
+    // Step 3: Evidence
+    evidence: [],
+    
+    // Step 4: Victims
+    hasVictims: false,
+    victims: []
   });
-
-  const updateFormData = (e) => {
-    const { name, value } = e.target;
-    
-    // Clear any existing errors when user makes changes
-    if (error) clearError();
-    
-    // Handle nested location object
-    if (name.includes('location.')) {
-      const locationField = name.split('.')[1];
-      setFormData({
-        ...formData,
-        location: {
-          ...formData.location,
-          [locationField]: value
-        }
-      });
-    } else {
-      // For regular fields
-      setFormData({
-        ...formData,
-        [name]: value
-      });
-    }
-  };
-
-  const nextStep = () => {
-    setStep(step + 1);
-  };
-
-  const prevStep = () => {
-    setStep(step - 1);
-  };
-
-  const handleSubmit = async () => {
+  
+  // Track current step and campaign ID
+  const [currentStep, setCurrentStep] = useState(1);
+  const [campaignId, setCampaignId] = useState(null);
+  const [stepSubmitting, setStepSubmitting] = useState(false);
+  
+  // Add the fetchCampaign function
+  const fetchCampaign = async (id) => {
     try {
-      // Format tags into array if present
-      let submitData = { ...formData };
-      if (submitData.tags) {
-        submitData.tags = submitData.tags.split(',').map(tag => tag.trim()).filter(Boolean);
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`/api/campaigns/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (response.data && response.data.success) {
+        setCampaignData(prev => ({
+          ...prev,
+          ...response.data.data
+        }));
       }
-      
-      // Create campaign
-      const newCampaign = await createCampaign(submitData);
-      
-      if (onSuccess) {
-        onSuccess(newCampaign);
-      }
-      
-      // Navigate to campaign edit page to continue setup
-      navigate(`/campaigns/${newCampaign._id}/edit`);
     } catch (err) {
-      // Error is already handled in context
-      console.error("Failed to create campaign:", err);
+      console.error("Error fetching campaign:", err);
+    }
+  };
+  
+  // Function to handle basic info submission (Step 1)
+  const handleBasicInfoSubmit = async (basicInfo) => {
+    setStepSubmitting(true);
+    setFormError(null); // Reset any previous errors
+    
+    try {
+      // Update our form data
+      setCampaignData(prev => ({
+        ...prev,
+        ...basicInfo
+      }));
+      
+      if (!campaignId) {
+        // First-time creation - create campaign and move to step 2
+        console.log("Creating new campaign with basic info:", basicInfo);
+        const result = await createCampaign(basicInfo);
+        
+        if (result && result._id) {
+          console.log(`Campaign created with ID: ${result._id}, setting step to 2`);
+          setCampaignId(result._id);
+          
+          // Important: After creating, manually set the step to 2 in both frontend and backend
+          setCurrentStep(2);
+          
+          // Also update the backend to ensure it knows we're at step 2
+          await updateCampaignStep(result._id, 1, basicInfo);
+          
+          // Optional: Fetch the updated campaign to ensure data consistency
+          fetchCampaign(result._id);
+        } else {
+          throw new Error("Failed to get campaign ID from creation response");
+        }
+      } else {
+        // Campaign already exists, just update it
+        console.log(`Updating existing campaign ${campaignId} with basic info:`, basicInfo);
+        await updateCampaignStep(campaignId, 1, basicInfo);
+        setCurrentStep(2);
+      }
+    } catch (error) {
+      console.error("Error saving basic info:", error);
+      setFormError("Failed to save campaign information. Please try again.");
+    } finally {
+      setStepSubmitting(false);
+    }
+  };
+  
+  // Function to handle team setup submission (Step 2)
+  const handleTeamSubmit = async (teamData) => {
+    setStepSubmitting(true);
+    try {
+      // Ensure communicationChannels.other is properly formatted
+      const formattedTeamData = {
+        ...teamData,
+        communicationChannels: {
+          ...teamData.communicationChannels,
+          other: typeof teamData.communicationChannels?.other === 'string'
+            ? [{ name: 'Other', url: teamData.communicationChannels.other }]
+            : teamData.communicationChannels?.other || []
+        }
+      };
+      
+      // Update our form data state
+      setCampaignData(prev => ({
+        ...prev,
+        team: formattedTeamData
+      }));
+      
+      // First check if we're at step 1 and need to submit basic info first
+      if (!campaignId) {
+        // We need to create the campaign first with basic info
+        const basicInfoResult = await createCampaign({
+          title: campaignData.title,
+          description: campaignData.description,
+          shortDescription: campaignData.shortDescription,
+          category: campaignData.category,
+          tags: campaignData.tags,
+          location: campaignData.location
+        });
+        
+        setCampaignId(basicInfoResult._id);
+        // Now update with team data
+        await updateCampaignStep(basicInfoResult._id, 2, formattedTeamData);
+      } else {
+        // Update the campaign with team data
+        await updateCampaignStep(campaignId, 2, formattedTeamData);
+      }
+      
+      setCurrentStep(3);
+    } catch (error) {
+      console.error("Error saving team data:", error);
+    } finally {
+      setStepSubmitting(false);
+    }
+  };
+  
+  // Function to handle evidence submission (Step 3)
+  const handleEvidenceSubmit = async (evidenceData) => {
+    setStepSubmitting(true);
+    try {
+      // Update our form data state
+      setCampaignData(prev => ({
+        ...prev,
+        evidence: evidenceData
+      }));
+      
+      // We don't submit evidence here - it's handled via file uploads
+      // Just move to next step for now
+      setCurrentStep(4);
+    } catch (error) {
+      console.error("Error handling evidence:", error);
+    } finally {
+      setStepSubmitting(false);
+    }
+  };
+  
+  // Function to handle victims submission (Step 4)
+  const handleVictimsSubmit = async (victimsData) => {
+    setStepSubmitting(true);
+    try {
+      // Update our form data state
+      setCampaignData(prev => ({
+        ...prev,
+        hasVictims: victimsData.hasVictims,
+        victims: victimsData.victims || []
+      }));
+      
+      // Update the campaign with victims data
+      await updateCampaignStep(campaignId, 3, {
+        hasVictims: victimsData.hasVictims,
+        victims: victimsData.victims || []
+      });
+      
+      setCurrentStep(5); // Move to review step
+    } catch (error) {
+      console.error("Error saving victims data:", error);
+    } finally {
+      setStepSubmitting(false);
+    }
+  };
+  
+  // Function to finalize the campaign
+  const handleFinalize = async (options = {}) => {
+    setStepSubmitting(true);
+    try {
+      // Final step - mark as complete and optionally publish
+      await updateCampaignStep(campaignId, 4, {
+        publishNow: options.publishNow || false,
+        skipEvidenceRequirement: options.skipEvidence || false
+      });
+      
+      // Redirect to campaign view or dashboard
+      navigate(options.publishNow 
+        ? `/campaigns/${campaignId}` 
+        : '/dashboard/campaigns'
+      );
+      
+    } catch (error) {
+      console.error("Error finalizing campaign:", error);
+    } finally {
+      setStepSubmitting(false);
     }
   };
 
-  // Render the current step
-  const renderStep = () => {
-    switch (step) {
+  // Render the appropriate step component
+  const renderStepComponent = () => {
+    switch (currentStep) {
       case 1:
         return (
-          <Step1Form
-            formData={formData}
-            updateFormData={updateFormData}
-            nextStep={nextStep}
+          <BasicInfoStep
+            initialData={campaignData}
+            onSubmit={handleBasicInfoSubmit}
+            isSubmitting={stepSubmitting}
           />
         );
       case 2:
         return (
-          <Step2Form
-            formData={formData}
-            updateFormData={updateFormData}
-            prevStep={prevStep}
-            nextStep={nextStep}
+          <TeamSetupStep
+            initialData={campaignData.team}
+            onSubmit={handleTeamSubmit}
+            onBack={() => setCurrentStep(1)}
+            isSubmitting={stepSubmitting}
           />
         );
       case 3:
         return (
-          <Step3Form
-            formData={formData}
-            prevStep={prevStep}
-            onSubmit={handleSubmit}
-            isLoading={isLoading}
-            error={error}
+          <EvidenceStep
+            initialData={{
+              evidence: campaignData.evidence
+            }}
+            campaignId={campaignId}
+            onSubmit={handleEvidenceSubmit}
+            onBack={() => setCurrentStep(2)}
+            isSubmitting={stepSubmitting}
+          />
+        );
+      case 4:
+        return (
+          <VictimsStep
+            initialData={{
+              hasVictims: campaignData.hasVictims,
+              victims: campaignData.victims
+            }}
+            onSubmit={handleVictimsSubmit}
+            onBack={() => setCurrentStep(3)}
+            isSubmitting={stepSubmitting}
+          />
+        );
+      case 5:
+        return (
+          <ReviewStep
+            campaignData={campaignData}
+            campaignId={campaignId}
+            onFinalize={handleFinalize}
+            onBack={() => setCurrentStep(4)}
+            isSubmitting={stepSubmitting}
           />
         );
       default:
-        return null;
+        return <div>Unknown step</div>;
     }
   };
 
   return (
-    <div className="bg-white">
-      {/* Progress bar */}
-      <div className="px-6 pt-6">
-        <div className="w-full bg-gray-200 rounded-full h-2.5">
-          <div
-            className="bg-indigo-600 h-2.5 rounded-full transition-all duration-300"
-            style={{ width: `${(step / 3) * 100}%` }}
-          ></div>
+    <div className="bg-white shadow-md rounded-lg p-6 max-w-4xl mx-auto">
+      {isLoading && <CustomLoading />}
+      
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">Create Your Campaign</h2>
+        
+        {/* Progress Bar */}
+        <div className="relative pt-1">
+          <div className="flex mb-2 items-center justify-between">
+            <div>
+              <span className="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-indigo-600 bg-indigo-200">
+                Step {currentStep} of 5
+              </span>
+            </div>
+            <div className="text-right">
+              <span className="text-xs font-semibold inline-block text-indigo-600">
+                {Math.round((currentStep / 5) * 100)}%
+              </span>
+            </div>
+          </div>
+          <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-indigo-200">
+            <div
+              style={{ width: `${(currentStep / 5) * 100}%` }}
+              className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-indigo-500"
+            ></div>
+          </div>
         </div>
-        <div className="flex justify-between text-xs text-gray-500 mt-1">
-          <span className={step >= 1 ? 'text-indigo-600 font-medium' : ''}>Details</span>
-          <span className={step >= 2 ? 'text-indigo-600 font-medium' : ''}>Location</span>
-          <span className={step >= 3 ? 'text-indigo-600 font-medium' : ''}>Review</span>
+        
+        {/* Step titles */}
+        <div className="flex justify-between text-xs text-gray-500 px-1">
+          <div className={currentStep >= 1 ? "text-indigo-600 font-semibold" : ""}>Basic Info</div>
+          <div className={currentStep >= 2 ? "text-indigo-600 font-semibold" : ""}>Team</div>
+          <div className={currentStep >= 3 ? "text-indigo-600 font-semibold" : ""}>Evidence</div>
+          <div className={currentStep >= 4 ? "text-indigo-600 font-semibold" : ""}>Victims</div>
+          <div className={currentStep >= 5 ? "text-indigo-600 font-semibold" : ""}>Review</div>
         </div>
       </div>
       
-      {/* Form steps */}
-      {renderStep()}
+      {/* Error Display - show both contextual error and form error */}
+      {(error || formError) && (
+        <div className="bg-red-50 text-red-600 p-3 rounded-md mb-6">
+          {error || formError}
+        </div>
+      )}
+      
+      {/* Current Step Form */}
+      {renderStepComponent()}
     </div>
   );
 };
 
-export default CampaignCreationForm;
+export default CampaignForm;

@@ -26,6 +26,8 @@ export const CampaignProvider = ({ children }) => {
   
   // Create a stable API reference that updates when auth changes
   const apiRef = useRef(null);
+  const apiBaseUrl ='http://localhost:4000/api';
+  
   
   // Update API instance when auth changes
   useEffect(() => {
@@ -230,7 +232,7 @@ export const CampaignProvider = ({ children }) => {
       const response = await apiRef.current.post('/', campaignData);
       const newCampaign = response.data.data || response.data;
       
-      // Update userCampaigns
+      // Add to user campaigns if needed
       setUserCampaigns(prev => [newCampaign, ...prev]);
       
       return newCampaign;
@@ -268,28 +270,42 @@ export const CampaignProvider = ({ children }) => {
   }, []);
 
   // Update campaign step
-  const updateCampaignStep = useCallback(async (campaignId, step, data) => {
+  const updateCampaignStep = async (campaignId, step, data) => {
     setIsLoading(true);
-    setError(null);
-    
     try {
-      const response = await apiRef.current.put(`/${campaignId}/step`, { step, data });
-      const updatedCampaign = response.data.data || response.data;
+      // Get the current token from localStorage to ensure we have the latest one
+      const token = localStorage.getItem('token');
       
-      // Update in campaigns list
-      setUserCampaigns(prev => 
-        prev.map(campaign => campaign._id === campaignId ? updatedCampaign : campaign)
+      if (!token) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+      
+      // Format communicationChannels.other if present in team data (step 2)
+      let formattedData = { ...data };
+      
+      if (step === 2 && data.communicationChannels && typeof data.communicationChannels.other === 'string') {
+        formattedData.communicationChannels = {
+          ...data.communicationChannels,
+          other: data.communicationChannels.other ? 
+            [{ name: 'Other', url: data.communicationChannels.other }] : []
+        };
+      }
+      
+      const response = await axios.put(
+        `${apiBaseUrl}/campaigns/${campaignId}/step`,
+        { step, data: formattedData },
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       
-      return updatedCampaign;
-    } catch (err) {
-      console.error(`Error updating campaign step ${step}:`, err.response?.data || err.message);
-      setError(err.response?.data?.message || `Failed to update step ${step}`);
-      throw err;
-    } finally {
       setIsLoading(false);
+      return response.data.data;
+    } catch (error) {
+      setIsLoading(false);
+      console.error("Error updating campaign step " + step + ": ", error.response?.data);
+      setError(error.response?.data?.message || `Error updating campaign step ${step}`);
+      throw error;
     }
-  }, []);
+  };
 
   // Delete campaign
   const deleteCampaign = useCallback(async (campaignId) => {
@@ -306,6 +322,28 @@ export const CampaignProvider = ({ children }) => {
     } catch (err) {
       console.error("Error deleting campaign:", err.response?.data || err.message);
       setError(err.response?.data?.message || 'Failed to delete campaign');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Fetch a single campaign by ID
+  const fetchCampaign = useCallback(async (campaignId) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const response = await apiRef.current.get(`/${campaignId}`);
+      const campaign = response.data.data || response.data;
+      console.log(campaign)
+      // Update current campaign in state
+      setCurrentCampaign(campaign);
+      
+      return campaign;
+    } catch (err) {
+      console.error("Error fetching campaign details:", err.response?.data || err.message);
+      setError(err.response?.data?.message || 'Failed to fetch campaign details');
       throw err;
     } finally {
       setIsLoading(false);
@@ -329,6 +367,7 @@ export const CampaignProvider = ({ children }) => {
     updateCampaign,
     updateCampaignStep,
     deleteCampaign,
+    fetchCampaign,
     
     // List operations
     getUserCampaigns,
