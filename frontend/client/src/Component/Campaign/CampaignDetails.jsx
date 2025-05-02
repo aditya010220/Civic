@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../Context/authContext';
 import { useCampaign } from '../../Context/campaignContext';
-import LoadingAnimation from '../Loading/CustomLoading';
+import CustomLoading from '../Loading/CustomLoading';
+import { FaMapMarkerAlt, FaVrCardboard, FaPoll } from 'react-icons/fa';  // Add this import for the poll icon
+import StreetViewModal from './StreetViewModal';
 
 // Import components
 import BannerSection from './Sections/BannerSection';
@@ -21,6 +23,7 @@ import ExpertHelpSection from './Sections/ExpertHelpSection';
 import ManageSection from './Sections/ManageSection';
 import SupporterSection from './Sections/SupporterSection';
 import SignatureList from './Sections/SignatureList';
+import PollsSection from './Sections/PollsSection';  // Add this import
 
 const CampaignDetail = () => {
   const { campaignId } = useParams();
@@ -35,6 +38,10 @@ const CampaignDetail = () => {
   
   // Modal state for cover image upload/generation
   const [showCoverModal, setShowCoverModal] = useState(false);
+
+  // Add Street View Modal state
+  const [showStreetViewModal, setShowStreetViewModal] = useState(false);
+  const [locationForVR, setLocationForVR] = useState('');
 
   // Fetch campaign data when component mounts or campaignId changes
   useEffect(() => {
@@ -139,17 +146,77 @@ const CampaignDetail = () => {
     }
   };
 
+  // Handle opening Street View modal
+  const handleVisualizeLocation = () => {
+    // Determine the best location string to start with
+    let initialLocation = '';
+    
+    if (currentCampaign.location) {
+      if (typeof currentCampaign.location === 'object') {
+        // Format object location
+        const { city, state, country } = currentCampaign.location;
+        initialLocation = [city, state, country].filter(Boolean).join(', ');
+      } else {
+        // String location
+        initialLocation = currentCampaign.location;
+      }
+    } else if (currentCampaign.address) {
+      initialLocation = currentCampaign.address;
+    } else {
+      initialLocation = `${currentCampaign.title} location`;
+    }
+    
+    setLocationForVR(initialLocation);
+    setShowStreetViewModal(true);
+  };
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'overview':
+        return <OverviewSection campaign={currentCampaign} onVisualizeLocation={handleVisualizeLocation} />;
+      case 'updates':
+        return <UpdatesSection campaign={currentCampaign} formatDate={formatDate} />;
+      case 'evidence':
+        return <EvidenceSection campaign={currentCampaign} formatDate={formatDate} isUserAuthorized={isUserAuthorized()} />;
+      case 'gallery':
+        return <GallerySection campaign={currentCampaign} isUserAuthorized={isUserAuthorized()} />;
+      case 'activity':
+        return <ActivitySection campaign={currentCampaign} formatDate={formatDate} isUserAuthorized={isUserAuthorized()} />;
+      case 'team':
+        return <TeamSection campaign={currentCampaign} />;
+      case 'victims':
+        return currentCampaign.hasVictims ? 
+          <VictimsSection campaign={currentCampaign} isUserAuthorized={isUserAuthorized()} /> : null;
+      case 'supporters':
+        return <SupporterSection campaign={currentCampaign} />;
+      case 'signatures':
+        return <SignatureList campaign={currentCampaign} />;
+      case 'polls':
+        return <PollsSection campaign={currentCampaign} isUserAuthorized={isUserAuthorized()} />;
+      case 'expert':
+        return <ExpertHelpSection />;
+      case 'legal':
+        return <div>Legal help resources</div>; // Replace with actual component
+      case 'manage':
+        return isUserAuthorized() ? <ManageSection campaign={currentCampaign} /> : null;
+      case 'settings':
+        return isUserAuthorized() ? <div>Campaign settings</div> : null; // Replace with actual component
+      default:
+        return <OverviewSection campaign={currentCampaign} />;
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <LoadingAnimation size="medium" />
+        <CustomLoading size="medium" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
+      <div className="min-h-screen bg-gray-50 p-2">
         <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
           <div className="flex items-center">
             <div className="flex-shrink-0">
@@ -184,115 +251,46 @@ const CampaignDetail = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Banner Area */}
+    <div className="bg-gray-50 min-h-screen ">
+      {/* Street View Modal */}
+      {showStreetViewModal && (
+        <StreetViewModal
+          location={locationForVR}
+          isOpen={showStreetViewModal}
+          onClose={() => setShowStreetViewModal(false)}
+        />
+      )}
+
+      {/* Banner Section with Cover Image */}
       <BannerSection 
-        campaign={currentCampaign}
+        campaign={currentCampaign} 
         formatDate={formatDate}
         isUserAuthorized={isUserAuthorized()}
         onEditCover={handleEditCover}
         onCoverUpdated={handleCoverUpdated}
       />
-      
+
       {/* Mobile Tab Navigation */}
       <MobileTabBar 
         activeTab={activeTab} 
-        setActiveTab={setActiveTab}
+        setActiveTab={setActiveTab} 
         campaign={currentCampaign}
         isUserAuthorized={isUserAuthorized()}
       />
-      
-      {/* Main Content Area with Sidebar */}
-      <div className="relative">
-        {/* Campaign Side Navigation */}
+
+      {/* Main Content Area - Revised Layout */}
+      <div className="flex flex-col md:flex-row">
+        {/* Sidebar Navigation - Now flush with left edge */}
         <CampaignSidebar 
-          activeTab={activeTab} 
+          activeTab={activeTab}
           setActiveTab={setActiveTab}
           campaign={currentCampaign}
           isUserAuthorized={isUserAuthorized()}
         />
-        
-        {/* Main Content */}
-        <div className="md:ml-64 p-4 md:p-6">
-          {/* Render content based on active tab */}
-          {activeTab === 'overview' && (
-            <OverviewSection campaign={currentCampaign} />
-          )}
-          
-          {activeTab === 'team' && (
-            <TeamSection campaign={currentCampaign} />
-          )}
-          
-          {activeTab === 'evidence' && (
-            <EvidenceSection 
-              campaign={currentCampaign}
-              formatDate={formatDate}
-              isUserAuthorized={isUserAuthorized()}
-            />
-          )}
-          
-          {activeTab === 'updates' && (
-            <UpdatesSection 
-              campaign={currentCampaign}
-              formatDate={formatDate}
-            />
-          )}
-          
-          {activeTab === 'activity' && (
-            <ActivitySection 
-              campaign={currentCampaign}
-              formatDate={formatDate}
-              isUserAuthorized={isUserAuthorized()}
-            />
-          )}
-          
-          {activeTab === 'gallery' && (
-            <GallerySection 
-              campaign={currentCampaign}
-              isUserAuthorized={isUserAuthorized()}
-            />
-          )}
-          
-          {activeTab === 'victims' && (
-            <VictimsSection 
-              campaign={currentCampaign} 
-              isUserAuthorized={isUserAuthorized()}
-            />
-          )}
-          
-          {activeTab === 'expert' && (
-            <ExpertHelpSection />
-          )}
-          
-          {activeTab === 'legal' && (
-            <div className="bg-white shadow rounded-lg p-6">
-              <h2 className="text-xl font-semibold mb-6">LegalEye Support</h2>
-              {/* LegalEye content */}
-            </div>
-          )}
-          
-          {activeTab === 'supporters' && (
-            <div className="p-6">
-              <SupporterSection campaign={currentCampaign} />
-            </div>
-          )}
 
-          {activeTab === 'signatures' && (
-            <div className="p-6">
-              <SignatureList campaignId={currentCampaign._id} />
-            </div>
-          )}
-          
-          {activeTab === 'manage' && isUserAuthorized() && (
-            <ManageSection campaign={currentCampaign} />
-          )}
-          
-          {activeTab === 'settings' && isUserAuthorized() && (
-            <div className="bg-white shadow rounded-lg p-6">
-              <h2 className="text-xl font-semibold mb-6">Campaign Settings</h2>
-              {/* Settings content */}
-            </div>
-          )}
+        {/* Main Content - Full width with proper padding */}
+        <div className="flex-1 bg-gray-50 min-h-screen px-6 py-6">
+          {renderTabContent()}
         </div>
       </div>
     </div>

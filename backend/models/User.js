@@ -45,7 +45,7 @@ const userSchema = new mongoose.Schema({
   
   // Engagement metrics
   activityLog: [{
-    action: { type: String, enum: ['create', 'sign', 'comment', 'share', 'donate'] },
+    action: { type: String, enum: ['create', 'sign', 'comment', 'share', 'donate', 'support'] },
     campaignId: { type: mongoose.Schema.Types.ObjectId, ref: 'Campaign' },
     timestamp: { type: Date, default: Date.now }
   }],

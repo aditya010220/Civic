@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
   FaArrowLeft, FaCalendarAlt, FaMapMarkerAlt, 
@@ -9,34 +9,9 @@ import {
 import { useAuth } from '../../../Context/authContext';
 import { toast } from 'react-hot-toast';
 
-const isUserAuthorized = () => {
-  if (!currentUser || !currentCampaign) return false;
-  
-  // Check if user is creator
-  if (currentCampaign.createdBy && currentCampaign.createdBy._id === currentUser.id) {
-    return true;
-  }
-  
-  // Check if user is team member
-  if (currentCampaign.team) {
-    const allMembers = [
-      currentCampaign.team.leader,
-      currentCampaign.team.coLeader,
-      currentCampaign.team.socialMediaCoordinator,
-      currentCampaign.team.volunteerCoordinator,
-      currentCampaign.team.financeManager,
-      ...(currentCampaign.team.additionalMembers || [])
-    ].filter(Boolean);
-    
-    return allMembers.some(member => 
-      member && member.userId && member.userId === currentUser.id
-    );
-  }
-  
-  return false;
-};
-
 const BannerSection = ({ campaign, formatDate, isUserAuthorized, onEditCover, onCoverUpdated }) => {
+  const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const [showModal, setShowModal] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -45,7 +20,8 @@ const BannerSection = ({ campaign, formatDate, isUserAuthorized, onEditCover, on
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [tempCoverImage, setTempCoverImage] = useState(null);
-  const { currentUser } = useAuth();
+  
+  // Support modal states
   const [isSigningUp, setIsSigningUp] = useState(false);
   const [showSignModal, setShowSignModal] = useState(false);
   const [signFormData, setSignFormData] = useState({
@@ -157,23 +133,6 @@ const BannerSection = ({ campaign, formatDate, isUserAuthorized, onEditCover, on
       setShowModal(false);
       setAiPrompt('');
       
-      // This would be used when backend is ready
-      // const token = localStorage.getItem('token');
-      // const response = await axios.post(
-      //   `/api/campaigns/${campaign._id}/generate-cover`,
-      //   { prompt: aiPrompt },
-      //   {
-      //     headers: {
-      //       'Content-Type': 'application/json',
-      //       'Authorization': `Bearer ${token}`
-      //     }
-      //   }
-      // );
-      
-      // if (onCoverUpdated) {
-      //   onCoverUpdated(response.data.coverImage);
-      // }
-      
     } catch (err) {
       console.error('Error generating image:', err);
       setError(err.response?.data?.message || 'Failed to generate image. Please try again.');
@@ -182,7 +141,8 @@ const BannerSection = ({ campaign, formatDate, isUserAuthorized, onEditCover, on
     }
   };
 
-  const handleSignCampaign = async () => {
+  // Handle opening the sign campaign modal
+  const handleSignCampaign = () => {
     if (!currentUser) {
       // Redirect to login if not authenticated
       toast.error('Please login to support this campaign');
@@ -193,12 +153,20 @@ const BannerSection = ({ campaign, formatDate, isUserAuthorized, onEditCover, on
     setShowSignModal(true);
   };
 
+  // Handle submitting the support form
   const handleSubmitSupport = async (e) => {
     e.preventDefault();
     setIsSigningUp(true);
 
     try {
       const token = localStorage.getItem('token');
+      
+      if (!token) {
+        toast.error("Authentication required. Please log in again.");
+        navigate('/login');
+        return;
+      }
+      
       const response = await axios.post(
         `http://localhost:4000/api/campaigns/${campaign._id}/supporters`,
         signFormData,
@@ -210,10 +178,12 @@ const BannerSection = ({ campaign, formatDate, isUserAuthorized, onEditCover, on
       if (response.data.success) {
         toast.success('Thank you for supporting this campaign!');
         setShowSignModal(false);
-        // Optionally refresh campaign data here
+        // You might want to refresh campaign data here or update UI
       }
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to sign campaign');
+      console.error("Error supporting campaign:", error);
+      const errorMessage = error.response?.data?.message || 'Failed to sign campaign';
+      toast.error(errorMessage);
     } finally {
       setIsSigningUp(false);
     }
@@ -222,16 +192,15 @@ const BannerSection = ({ campaign, formatDate, isUserAuthorized, onEditCover, on
   return (
     <div className="relative">
       <div className="h-[35vh] text-white relative overflow-hidden">
-        {/* Background image and effects - keep existing code */}
+        {/* Background image and effects */}
         {displayCoverImage ? (
           <div className="absolute inset-0">
             <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/80 z-10"></div>
             <img 
               src={displayCoverImage} 
               alt={campaign.title} 
-              className="w-full h-full object-cover  contrast-110 brightness-95"
+              className="w-full h-full object-cover contrast-110 brightness-95"
             />
-            {/* Vintage vignette effect */}
             <div 
               className="absolute inset-0"
               style={{
@@ -255,6 +224,7 @@ const BannerSection = ({ campaign, formatDate, isUserAuthorized, onEditCover, on
 
             {/* Action buttons moved to top right */}
             <div className="flex items-center gap-4">
+              {/* Edit Cover button was here - now moved */}
               <div className="bg-black/30 backdrop-blur-sm px-6 py-2 rounded-full border border-white/10">
                 <div className="text-xl font-bold">{campaign.engagementMetrics?.supporters || 0}</div>
                 <div className="text-xs text-white/70 uppercase tracking-wider">Supporters</div>
@@ -318,17 +288,6 @@ const BannerSection = ({ campaign, formatDate, isUserAuthorized, onEditCover, on
             </div>
           </div>
         </div>
-
-        {/* Edit cover button - keep existing code */}
-        {isUserAuthorized && (
-          <button 
-            onClick={() => setShowModal(true)}
-            className="absolute top-4 right-4 backdrop-blur-sm bg-black/30 hover:bg-black/50 text-white px-4 py-2 rounded-full flex items-center space-x-2 transition-all border border-white/10"
-          >
-            <FaCamera className="mr-2" /> 
-            <span>Edit Cover</span>
-          </button>
-        )}
       </div>
 
       {/* Cover Image Edit Modal */}
@@ -504,100 +463,82 @@ const BannerSection = ({ campaign, formatDate, isUserAuthorized, onEditCover, on
         </div>
       )}
 
-      {/* Sign Modal */}
+      {/* Sign Campaign Modal */}
       {showSignModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-auto">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Support this Campaign</h3>
+              <h3 className="text-lg font-semibold text-gray-900 font-serif">Support Campaign</h3>
               <button 
                 onClick={() => setShowSignModal(false)}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-400 hover:text-gray-500"
               >
                 <FaTimes />
               </button>
             </div>
-
+            
             <form onSubmit={handleSubmitSupport}>
-              {/* Support Type */}
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  How would you like to support?
+                <label htmlFor="support-type" className="block text-sm font-medium text-gray-700 mb-2 font-serif">
+                  Support Type
                 </label>
                 <select
-                  name="supportType"
+                  id="support-type"
                   value={signFormData.supportType}
-                  onChange={(e) => setSignFormData(prev => ({
-                    ...prev,
-                    supportType: e.target.value
-                  }))}
-                  className="w-full p-2 border border-gray-300 rounded-md"
+                  onChange={(e) => setSignFormData({ ...signFormData, supportType: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-black focus:border-black font-serif"
                 >
-                  <option value="signature">Sign the Campaign</option>
-                  <option value="volunteer">Volunteer</option>
-                  <option value="share">Share</option>
-                  <option value="donation">Donate</option>
+                  <option value="signature">Signature</option>
+                  <option value="donation">Donation</option>
                 </select>
               </div>
 
-              {/* Message */}
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-2 font-serif">
                   Message (Optional)
                 </label>
                 <textarea
-                  name="message"
+                  id="message"
+                  rows={3}
                   value={signFormData.message}
-                  onChange={(e) => setSignFormData(prev => ({
-                    ...prev,
-                    message: e.target.value
-                  }))}
-                  className="w-full p-2 border border-gray-300 rounded-md"
-                  rows="3"
-                  placeholder="Share why you're supporting this campaign..."
+                  onChange={(e) => setSignFormData({ ...signFormData, message: e.target.value })}
+                  placeholder="Write a message to show your support"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-black focus:border-black font-serif"
                 />
               </div>
 
-              {/* Anonymous Option */}
-              <div className="mb-6">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    name="isAnonymous"
-                    checked={signFormData.isAnonymous}
-                    onChange={(e) => setSignFormData(prev => ({
-                      ...prev,
-                      isAnonymous: e.target.checked
-                    }))}
-                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span className="ml-2 text-sm text-gray-600">
-                    Support anonymously
-                  </span>
+              <div className="mb-4 flex items-center">
+                <input
+                  type="checkbox"
+                  id="anonymous"
+                  checked={signFormData.isAnonymous}
+                  onChange={(e) => setSignFormData({ ...signFormData, isAnonymous: e.target.checked })}
+                  className="h-4 w-4 text-black focus:ring-black border-gray-300 rounded"
+                />
+                <label htmlFor="anonymous" className="ml-2 text-sm text-gray-700 font-serif">
+                  Support anonymously
                 </label>
               </div>
 
-              {/* Submit Button */}
-              <div className="flex justify-end gap-3">
+              <div className="flex justify-end mt-4">
                 <button
-                  type="button"
                   onClick={() => setShowSignModal(false)}
-                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
+                  className="mr-3 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 font-serif"
+                  disabled={isSigningUp}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSigningUp}
-                  className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 disabled:bg-gray-400"
+                  className="px-4 py-2 text-sm font-medium text-white bg-black rounded-md hover:bg-gray-800 disabled:bg-gray-400 font-serif"
                 >
                   {isSigningUp ? (
                     <>
-                      <FaSpinner className="inline mr-2 animate-spin" />
-                      Supporting...
+                      <FaSpinner className="inline mr-2 animate-spin" /> Submitting...
                     </>
                   ) : (
-                    'Support Campaign'
+                    'Submit Support'
                   )}
                 </button>
               </div>
