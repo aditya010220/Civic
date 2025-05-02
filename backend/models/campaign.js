@@ -217,6 +217,11 @@ const campaignSchema = new mongoose.Schema({
     isAnonymous: { type: Boolean, default: false },
     message: String // Optional message of support
   }],
+
+  polls: [{
+  type: mongoose.Schema.Types.ObjectId,
+  ref: 'CampaignPoll'
+}],
   
   // Brand Support & Sponsorships
   brandSupport: [{

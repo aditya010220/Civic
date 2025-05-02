@@ -17,6 +17,9 @@ const MobileTabBar = ({ activeTab, setActiveTab, campaign, isUserAuthorized }) =
             <option value="activity">Activity Timeline</option>
             <option value="team">Team</option>
             {campaign?.hasVictims && <option value="victims">Victims</option>}
+            <option value="supporters">Supporters</option>
+            <option value="signatures">Signatures</option>
+            <option value="polls">Polls</option>
             <option value="expert">Talk to Expert</option>
             <option value="legal">LegalEye</option>
             {isUserAuthorized && <option value="manage">Manage Campaign</option>}

@@ -10,6 +10,8 @@ import victimRoutes from './routes/CampaignVictimRoute.js'; // Assuming you have
 //Routes 
 import authRoute from './routes/authRoute.js';
 import supporterRoutes from './routes/CampaignSupport.js'; // Assuming you have a supporterRoute
+// import campaignPollsRoute from './routes/campaignPolls.js'; // Assuming you have a campaignPollsRoute
+import campaignPollsRoute from './routes/campaignPolls.js'; // Assuming you have a campaignPollsRoute
 
 dotenv.config();
 connectDB();
@@ -31,7 +33,8 @@ app.use('/api/campaigns', campaignRoute);
 app.use('/api/campaigns', campaignActivityRoute); 
 app.use('/api/campaigns/:campaignId/victims', victimRoutes);
 app.use('/api/campaigns/:campaignId/supporters', supporterRoutes);
-
+// app.use('/api/campaigns/:campaignId/polls', campaignPollsRoute); // Assuming you have a campaignPollsRoute
+app.use('/api/campaigns/:campaignId/polls', campaignPollsRoute); 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
