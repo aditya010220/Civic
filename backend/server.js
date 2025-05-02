@@ -6,8 +6,10 @@ import dotenv from 'dotenv';
 import connectDB from './db/mongo.js';
 import campaignRoute from './routes/campaignRoutes.js'; // Assuming you have a campaignRoute
 import campaignActivityRoute from './routes/activityRoute.js'; 
+import victimRoutes from './routes/CampaignVictimRoute.js'; // Assuming you have a victimRoute
 //Routes 
 import authRoute from './routes/authRoute.js';
+import supporterRoutes from './routes/CampaignSupport.js'; // Assuming you have a supporterRoute
 
 dotenv.config();
 connectDB();
@@ -26,8 +28,9 @@ app.get('/', (req, res) => {
 
 app.use('/api/users', authRoute);
 app.use('/api/campaigns', campaignRoute); 
-app.use('/api/campaigns', campaignActivityRoute); // Assuming you have a campaignRoute
-
+app.use('/api/campaigns', campaignActivityRoute); 
+app.use('/api/campaigns/:campaignId/victims', victimRoutes);
+app.use('/api/campaigns/:campaignId/supporters', supporterRoutes);
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {

@@ -6,6 +6,8 @@ import {
   FaUser, FaSignature, FaShareAlt, FaCamera,
   FaUpload, FaRobot, FaTimes, FaSpinner
 } from 'react-icons/fa';
+import { useAuth } from '../../../Context/authContext';
+import { toast } from 'react-hot-toast';
 
 const isUserAuthorized = () => {
   if (!currentUser || !currentCampaign) return false;
@@ -43,6 +45,14 @@ const BannerSection = ({ campaign, formatDate, isUserAuthorized, onEditCover, on
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [tempCoverImage, setTempCoverImage] = useState(null);
+  const { currentUser } = useAuth();
+  const [isSigningUp, setIsSigningUp] = useState(false);
+  const [showSignModal, setShowSignModal] = useState(false);
+  const [signFormData, setSignFormData] = useState({
+    supportType: 'signature',
+    message: '',
+    isAnonymous: false
+  });
   
   if (!campaign) return null;
   
@@ -171,51 +181,122 @@ const BannerSection = ({ campaign, formatDate, isUserAuthorized, onEditCover, on
       setIsLoading(false);
     }
   };
+
+  const handleSignCampaign = async () => {
+    if (!currentUser) {
+      // Redirect to login if not authenticated
+      toast.error('Please login to support this campaign');
+      navigate('/login');
+      return;
+    }
+
+    setShowSignModal(true);
+  };
+
+  const handleSubmitSupport = async (e) => {
+    e.preventDefault();
+    setIsSigningUp(true);
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        `http://localhost:4000/api/campaigns/${campaign._id}/supporters`,
+        signFormData,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      if (response.data.success) {
+        toast.success('Thank you for supporting this campaign!');
+        setShowSignModal(false);
+        // Optionally refresh campaign data here
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to sign campaign');
+    } finally {
+      setIsSigningUp(false);
+    }
+  };
   
   return (
     <div className="relative">
-      <div className=" text-white relative">
-        {/* Cover image with black and white filter */}
+      <div className="h-[35vh] text-white relative overflow-hidden">
+        {/* Background image and effects - keep existing code */}
         {displayCoverImage ? (
           <div className="absolute inset-0">
+            <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/80 z-10"></div>
             <img 
               src={displayCoverImage} 
               alt={campaign.title} 
-              className="w-full h-full object-cover filter"
+              className="w-full h-full object-cover  contrast-110 brightness-95"
             />
+            {/* Vintage vignette effect */}
+            <div 
+              className="absolute inset-0"
+              style={{
+                background: 'radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.4) 100%)',
+                mixBlendMode: 'multiply'
+              }}
+            ></div>
           </div>
         ) : null}
-        
-        {/* Grain/texture overlay for newspaper feel */}
-        <div className="absolute inset-0 bg-repeat opacity-10" style={{ 
-          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' viewBox='0 0 4 4'%3E%3Cpath fill='%239C92AC' fill-opacity='0.4' d='M1 3h1v1H1V3zm2-2h1v1H3V1z'%3E%3C/path%3E%3C/svg%3E")` 
-        }}></div>
-        
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-            <div>
-              <div className="mb-4 flex items-center">
-                <Link to="/dashboard" className="text-white opacity-75 hover:opacity-100 flex items-center mr-4">
-                  <FaArrowLeft className="mr-2" /> Back
-                </Link>
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white text-gray-800 uppercase tracking-wider font-serif">
-                  {campaign.category?.replace(/-/g, ' ')}
-                </span>
+
+        {/* Main content */}
+        <div className="relative z-20 h-full flex flex-col">
+          {/* Top bar with navigation and action buttons */}
+          <div className="w-full px-6 py-4 flex justify-between items-center">
+            <Link 
+              to="/dashboard" 
+              className="text-white/90 hover:text-white flex items-center transition-colors"
+            >
+              <FaArrowLeft className="mr-2" /> Back
+            </Link>
+
+            {/* Action buttons moved to top right */}
+            <div className="flex items-center gap-4">
+              <div className="bg-black/30 backdrop-blur-sm px-6 py-2 rounded-full border border-white/10">
+                <div className="text-xl font-bold">{campaign.engagementMetrics?.supporters || 0}</div>
+                <div className="text-xs text-white/70 uppercase tracking-wider">Supporters</div>
               </div>
-              <h1 className="text-3xl md:text-5xl font-bold mb-2 font-serif tracking-tight leading-none">
+              
+              <div className="flex gap-2">
+                <button 
+                  onClick={handleSignCampaign}
+                  className="bg-white/90 hover:bg-white text-black px-4 py-2 rounded-full shadow-lg flex items-center justify-center font-medium transition-all"
+                >
+                  <FaSignature className="mr-2" /> Sign Now
+                </button>
+                <button className="bg-black/30 hover:bg-black/50 text-white p-2 rounded-full shadow-lg transition-all backdrop-blur-sm">
+                  <FaShareAlt size={18} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Campaign info moved to bottom */}
+          <div className="mt-auto px-6 pb-8">
+            <div className="max-w-7xl mx-auto">
+              <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-white/10 backdrop-blur-sm border border-white/20 uppercase tracking-wider mb-4">
+                {campaign.category?.replace(/-/g, ' ')}
+              </span>
+              
+              <h1 className="text-5xl font-bold mb-3 font-serif tracking-tight leading-tight">
                 {campaign.title}
               </h1>
-              <p className="text-lg md:text-xl opacity-90 mb-4 font-serif italic">
+              
+              <p className="text-xl text-white/90 mb-6 font-serif leading-relaxed max-w-3xl">
                 {campaign.shortDescription}
               </p>
-              <div className="flex flex-wrap items-center text-sm opacity-75 gap-4 font-serif">
-                <div className="flex items-center">
+
+              <div className="flex flex-wrap items-center gap-4 text-sm text-white/80">
+                <div className="flex items-center backdrop-blur-sm bg-black/20 rounded-full px-3 py-1.5">
                   <FaCalendarAlt className="mr-2" />
-                  <span>Started on {formatDate(campaign.createdAt)}</span>
+                  <span>Started {formatDate(campaign.createdAt)}</span>
                 </div>
-                
-                {campaign.location && (campaign.location.city || campaign.location.state || campaign.location.country) && (
-                  <div className="flex items-center">
+
+                {campaign.location && (
+                  <div className="flex items-center backdrop-blur-sm bg-black/20 rounded-full px-3 py-1.5">
                     <FaMapMarkerAlt className="mr-2" />
                     <span>
                       {[
@@ -226,46 +307,30 @@ const BannerSection = ({ campaign, formatDate, isUserAuthorized, onEditCover, on
                     </span>
                   </div>
                 )}
-                
+
                 {campaign.createdBy && (
-                  <div className="flex items-center">
+                  <div className="flex items-center backdrop-blur-sm bg-black/20 rounded-full px-3 py-1.5">
                     <FaUser className="mr-2" />
                     <span>By {campaign.createdBy.fullName || "Anonymous"}</span>
                   </div>
                 )}
               </div>
             </div>
-            
-            <div className="mt-6 md:mt-0 flex flex-col items-center">
-              <div className="bg-black bg-opacity-70 border border-gray-400 rounded-lg p-4 shadow-lg text-center">
-                <div className="text-3xl font-bold font-serif">{campaign.engagementMetrics?.supporters || 0}</div>
-                <div className="text-sm uppercase tracking-wide">Supporters</div>
-              </div>
-              
-              <div className="flex mt-4 space-x-2">
-                <button className="flex-1 bg-white text-black hover:bg-gray-200 px-4 py-2 rounded-lg shadow flex items-center justify-center font-medium font-serif">
-                  <FaSignature className="mr-2" /> Sign
-                </button>
-                <button className="bg-black bg-opacity-60 hover:bg-opacity-80 text-white p-2 rounded-lg shadow">
-                  <FaShareAlt />
-                </button>
-              </div>
-            </div>
           </div>
         </div>
-        
-        {/* Edit cover image button - only for authorized users */}
+
+        {/* Edit cover button - keep existing code */}
         {isUserAuthorized && (
           <button 
             onClick={() => setShowModal(true)}
-            className="absolute top-4 right-4 bg-black hover:bg-gray-800 text-white p-2 rounded-lg flex items-center"
+            className="absolute top-4 right-4 backdrop-blur-sm bg-black/30 hover:bg-black/50 text-white px-4 py-2 rounded-full flex items-center space-x-2 transition-all border border-white/10"
           >
-            <FaCamera className="mr-1" /> 
-            <span className="text-sm">Edit Cover</span>
+            <FaCamera className="mr-2" /> 
+            <span>Edit Cover</span>
           </button>
         )}
       </div>
-      
+
       {/* Cover Image Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
@@ -435,6 +500,108 @@ const BannerSection = ({ campaign, formatDate, isUserAuthorized, onEditCover, on
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Sign Modal */}
+      {showSignModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Support this Campaign</h3>
+              <button 
+                onClick={() => setShowSignModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitSupport}>
+              {/* Support Type */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  How would you like to support?
+                </label>
+                <select
+                  name="supportType"
+                  value={signFormData.supportType}
+                  onChange={(e) => setSignFormData(prev => ({
+                    ...prev,
+                    supportType: e.target.value
+                  }))}
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                >
+                  <option value="signature">Sign the Campaign</option>
+                  <option value="volunteer">Volunteer</option>
+                  <option value="share">Share</option>
+                  <option value="donation">Donate</option>
+                </select>
+              </div>
+
+              {/* Message */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Message (Optional)
+                </label>
+                <textarea
+                  name="message"
+                  value={signFormData.message}
+                  onChange={(e) => setSignFormData(prev => ({
+                    ...prev,
+                    message: e.target.value
+                  }))}
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                  rows="3"
+                  placeholder="Share why you're supporting this campaign..."
+                />
+              </div>
+
+              {/* Anonymous Option */}
+              <div className="mb-6">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    name="isAnonymous"
+                    checked={signFormData.isAnonymous}
+                    onChange={(e) => setSignFormData(prev => ({
+                      ...prev,
+                      isAnonymous: e.target.checked
+                    }))}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-600">
+                    Support anonymously
+                  </span>
+                </label>
+              </div>
+
+              {/* Submit Button */}
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowSignModal(false)}
+                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSigningUp}
+                  className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 disabled:bg-gray-400"
+                >
+                  {isSigningUp ? (
+                    <>
+                      <FaSpinner className="inline mr-2 animate-spin" />
+                      Supporting...
+                    </>
+                  ) : (
+                    'Support Campaign'
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

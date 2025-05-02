@@ -7,7 +7,7 @@ import ProfileGlimpse from '../Component/Profile/ProfileGlimpse';
 import NewsFeed from '../Component/Dashboard/NewsFeed';
 import CampaignsAroundYou from '../Component/Dashboard/CompaignAroundYou';
 import TrendingCampaigns from '../Component/Dashboard/TrendingCampaigns';
-import { FaBell, FaPlus, FaClipboardList } from 'react-icons/fa';
+import { FaBell, FaPlus, FaClipboardList, FaChartLine, FaNewspaper, FaUsers } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 
 function Dashboard() {
@@ -164,35 +164,68 @@ function Dashboard() {
       <SideNavbar />
       
       {/* Main Content */}
-      <div className="flex-1 md:ml-64 p-6 flex flex-col" style={{ height: "calc(100vh - 24px)" }}>
-        {/* Greeting Header */}
-        <header className="mb-4">
-          <h1 className="text-2xl font-bold text-gray-900">
-            {getGreetingMessage()}, {userData.fullName}
-          </h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Here's what's happening with your campaigns and in your area
-          </p>
-        </header>
-        
-        {/* Top section - Three Sections Row (increased height from 30% to 40%) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6" style={{ height: "40%" }}>
-          {/* Profile Glimpse */}
-          <div className="lg:col-span-3 h-full overflow-hidden">
-            <div className="h-full overflow-auto bg-white rounded-lg shadow-md border border-gray-200">
-              <ProfileGlimpse userData={userData} />
-            </div>
+      <div className="flex-1 md:ml-64 pt-4 pr-4 pl-6 flex flex-col" style={{ height: "calc(100vh - 24px)" }}>
+        {/* Enhanced Header with Profile Stats */}
+        <header className="mb-6 flex justify-between items-start">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {getGreetingMessage()}, {userData.fullName}
+            </h1>
+            <p className="text-sm text-gray-600 mt-1">
+              Here's what's happening with your campaigns and in your area
+            </p>
           </div>
           
-          {/* News Feed */}
-          <div className="lg:col-span-5 h-full overflow-hidden">
+          {/* Profile Stats Bookmark */}
+          <div className="flex items-center">
+            {userData?.profilePicture ? (
+              <img 
+                src={userData.profilePicture} 
+                alt="Profile"
+                className="w-9 h-9 rounded-full object-cover border-2 border-white shadow"
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center text-blue-500 font-bold text-lg border-2 border-white shadow">
+                {userData?.fullName?.[0] || 'U'}
+              </div>
+            )}
+            
+            <div className="flex bg-black text-white rounded-lg shadow-md overflow-hidden ml-2">
+              <div className="px-3 py-1.5 text-center border-r border-gray-700">
+                <div className="text-sm font-bold">{userData?.impactScore || 0}</div>
+                <div className="text-xs text-gray-300 flex items-center justify-center">
+                  <FaChartLine className="mr-1" size={8} /> Impact
+                </div>
+              </div>
+              
+              <div className="px-3 py-1.5 text-center border-r border-gray-700">
+                <div className="text-sm font-bold">{userCampaigns?.length || 0}</div>
+                <div className="text-xs text-gray-300 flex items-center justify-center">
+                  <FaNewspaper className="mr-1" size={8} /> Campaigns
+                </div>
+              </div>
+              
+              <div className="px-3 py-1.5 text-center">
+                <div className="text-sm font-bold">{userData?.followersCount || 0}</div>
+                <div className="text-xs text-gray-300 flex items-center justify-center">
+                  <FaUsers className="mr-1" size={8} /> Network
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+        
+        {/* Top section - Two Sections Row (redistributed space) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6" style={{ height: "40%" }}>
+          {/* News Feed - increased columns from 5 to 7 */}
+          <div className="lg:col-span-7 h-full overflow-hidden">
             <div className="h-full overflow-auto">
               <NewsFeed />
             </div>
           </div>
           
-          {/* Campaigns Around You */}
-          <div className="lg:col-span-4 h-full overflow-hidden">
+          {/* Campaigns Around You - increased columns from 4 to 5 */}
+          <div className="lg:col-span-5 h-full overflow-hidden">
             <div className="h-full overflow-auto">
               <CampaignsAroundYou />
             </div>

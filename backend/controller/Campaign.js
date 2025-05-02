@@ -1162,3 +1162,85 @@ export const updateCampaignCover = async (req, res) => {
     });
   }
 };
+
+/**
+ * Get all campaigns with filters
+ * @route GET /api/campaigns
+ */
+export const getAllCampaigns = async (req, res) => {
+  try {
+    const { 
+      category, 
+      location, 
+      status = 'active', 
+      sort = 'recent',
+      search,
+      page = 1,
+      limit = 10 
+    } = req.query;
+
+    // Build filter object
+    const filter = {};
+    
+    // Add filters if they exist
+    if (category) filter.category = category;
+    if (location) filter['location.type'] = location;
+    if (status) filter.status = status;
+    if (search) {
+      filter.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Calculate skip for pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Determine sort configuration
+    let sortConfig = {};
+    switch (sort) {
+      case 'recent':
+        sortConfig = { createdAt: -1 };
+        break;
+      case 'supporters':
+        sortConfig = { 'engagementMetrics.supporters': -1 };
+        break;
+      case 'trending':
+        sortConfig = { 'engagementMetrics.views': -1 };
+        break;
+      case 'endingSoon':
+        sortConfig = { endDate: 1 };
+        break;
+      default:
+        sortConfig = { createdAt: -1 };
+    }
+
+    // Get campaigns with pagination
+    const campaigns = await Campaign.find(filter)
+      .sort(sortConfig)
+      .skip(skip)
+      .limit(parseInt(limit))
+      .populate('createdBy', 'fullName email')
+      .populate('team', 'leader coLeader');
+
+    // Get total count for pagination
+    const total = await Campaign.countDocuments(filter);
+
+    res.status(200).json({
+      success: true,
+      data: campaigns,
+      pagination: {
+        total,
+        page: parseInt(page),
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching campaigns:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error fetching campaigns'
+    });
+  }
+};

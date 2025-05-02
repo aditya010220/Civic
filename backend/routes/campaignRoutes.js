@@ -9,7 +9,8 @@ import {
   getTeamMemberCampaigns,
   getUserCampaignStats,
   getCampaignEvidence,
-  updateCampaignCover // Add this import
+  updateCampaignCover, // Add this import
+  getAllCampaigns // Add this import
 } from '../controller/Campaign.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 
@@ -28,6 +29,9 @@ const upload = multer({
 // --- Campaign Creation & Management ---
 router.post('/', authMiddleware, createCampaign);
 router.put('/:id/step', authMiddleware, updateCampaignStep);
+
+// --- Campaign Retrieval --- (Add this new route)
+router.get('/', getAllCampaigns);
 
 // --- User Campaign Management ---
 router.get('/my-campaigns', authMiddleware, getUserCampaigns);

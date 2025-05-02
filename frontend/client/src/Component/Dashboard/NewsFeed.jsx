@@ -53,18 +53,18 @@ const NewsFeed = () => {
   };
 
   return (
-    <div className="bg-white shadow-md rounded-lg p-4 h-full flex flex-col">
-      <div className="flex justify-between items-center mb-3">
-        <h2 className="text-lg font-bold text-gray-800">Civic News Feed</h2>
-        <button className="text-xs text-gray-500 hover:text-black bg-gray-100 px-2 py-1 rounded-full hover:bg-gray-200 transition-colors">
+    <div className="bg-white shadow-sm rounded-lg p-3 h-full flex flex-col">
+      <div className="flex justify-between items-center mb-2">
+        <h2 className="text-base font-bold text-gray-800">Civic News Feed</h2>
+        <button className="text-xs text-gray-500 hover:text-black bg-gray-100 px-2 py-0.5 rounded-full hover:bg-gray-200 transition-colors">
           See all
         </button>
       </div>
       
-      <div className="space-y-4 overflow-auto flex-1">
+      <div className="space-y-3 flex-1">
         {newsItems.map(item => (
-          <div key={item.id} className="flex border-b border-gray-100 pb-4 last:border-0 last:pb-0">
-            <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
+          <div key={item.id} className="flex border-b border-gray-100 pb-3 last:border-0 last:pb-0">
+            <div className="w-16 h-16 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
               <img 
                 src={item.image} 
                 alt={item.title} 
@@ -72,29 +72,29 @@ const NewsFeed = () => {
               />
             </div>
             
-            <div className="ml-3 flex-1">
+            <div className="ml-2 flex-1">
               <div className="flex justify-between items-start">
                 <span className="text-xs font-medium text-gray-500">{item.source} • {item.timeAgo}</span>
                 <div className="flex space-x-1">
                   {item.isBookmarked ? 
-                    <button className="p-1 hover:bg-gray-100 rounded-full transition-colors">
-                      <FaBookmark className="text-blue-500" size={12} />
+                    <button className="p-0.5 hover:bg-gray-100 rounded-full transition-colors">
+                      <FaBookmark className="text-blue-500" size={10} />
                     </button> : 
-                    <button className="p-1 hover:bg-gray-100 rounded-full transition-colors">
-                      <FaRegBookmark className="text-gray-400 hover:text-blue-500" size={12} />
+                    <button className="p-0.5 hover:bg-gray-100 rounded-full transition-colors">
+                      <FaRegBookmark className="text-gray-400 hover:text-blue-500" size={10} />
                     </button>
                   }
-                  <button className="p-1 hover:bg-gray-100 rounded-full transition-colors">
-                    <FaEllipsisH className="text-gray-400" size={12} />
+                  <button className="p-0.5 hover:bg-gray-100 rounded-full transition-colors">
+                    <FaEllipsisH className="text-gray-400" size={10} />
                   </button>
                 </div>
               </div>
               
-              <h3 className="font-medium text-gray-900 mt-1 line-clamp-1 text-sm">{item.title}</h3>
-              <p className="text-xs text-gray-500 mt-1 line-clamp-1">{item.excerpt}</p>
+              <h3 className="font-medium text-gray-900 mt-0.5 line-clamp-1 text-xs">{item.title}</h3>
+              <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{item.excerpt}</p>
               
               <div className="mt-1">
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getCategoryStyle(item.color)}`}>
+                <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${getCategoryStyle(item.color)}`}>
                   {item.category}
                 </span>
               </div>

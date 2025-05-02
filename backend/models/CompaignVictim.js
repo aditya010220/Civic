@@ -6,6 +6,10 @@ const campaignVictimSchema = new mongoose.Schema({
     ref: 'Campaign',
     required: true
   },
+
+  picture: {
+    type: String, // URL to the victim's picture  
+  },
   
   // Victim identity
   name: {

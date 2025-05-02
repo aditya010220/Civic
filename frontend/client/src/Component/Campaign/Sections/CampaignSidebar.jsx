@@ -1,7 +1,8 @@
 import React from 'react';
 import { 
   FaChartLine, FaHistory, FaClipboardList, FaPhotoVideo,
-  FaUsers, FaUserShield, FaComments, FaGavel, FaWrench, FaCogs 
+  FaUsers, FaUserShield, FaComments, FaGavel, FaWrench, FaCogs,
+  FaSignature, FaHandsHelping // Add these new icons
 } from 'react-icons/fa';
 
 const CampaignSidebar = ({ activeTab, setActiveTab, campaign, isUserAuthorized }) => {
@@ -119,6 +120,36 @@ const CampaignSidebar = ({ activeTab, setActiveTab, campaign, isUserAuthorized }
             </h4>
           </li>
           
+          {/* Add Supporters section */}
+          <li>
+            <button
+              onClick={() => setActiveTab('supporters')}
+              className={`flex items-center w-full px-3 py-2 rounded-md ${
+                activeTab === 'supporters' 
+                  ? 'bg-gray-900 text-white' 
+                  : 'text-gray-800 hover:bg-gray-200'
+              }`}
+            >
+              <FaHandsHelping className="mr-3" />
+              <span>Supporters ({campaign?.engagementMetrics?.supporters || 0})</span>
+            </button>
+          </li>
+
+          {/* Add Signatures section */}
+          <li>
+            <button
+              onClick={() => setActiveTab('signatures')}
+              className={`flex items-center w-full px-3 py-2 rounded-md ${
+                activeTab === 'signatures' 
+                  ? 'bg-gray-900 text-white' 
+                  : 'text-gray-800 hover:bg-gray-200'
+              }`}
+            >
+              <FaSignature className="mr-3" />
+              <span>Signatures ({campaign?.engagementMetrics?.signatureCount || 0})</span>
+            </button>
+          </li>
+
           <li>
             <button
               onClick={() => setActiveTab('expert')}

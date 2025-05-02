@@ -19,6 +19,8 @@ import GallerySection from './Sections/GallerySection';
 import VictimsSection from './Sections/VictimSection';
 import ExpertHelpSection from './Sections/ExpertHelpSection';
 import ManageSection from './Sections/ManageSection';
+import SupporterSection from './Sections/SupporterSection';
+import SignatureList from './Sections/SignatureList';
 
 const CampaignDetail = () => {
   const { campaignId } = useParams();
@@ -251,8 +253,11 @@ const CampaignDetail = () => {
             />
           )}
           
-          {activeTab === 'victims' && currentCampaign.hasVictims && (
-            <VictimsSection campaign={currentCampaign} />
+          {activeTab === 'victims' && (
+            <VictimsSection 
+              campaign={currentCampaign} 
+              isUserAuthorized={isUserAuthorized()}
+            />
           )}
           
           {activeTab === 'expert' && (
@@ -263,6 +268,18 @@ const CampaignDetail = () => {
             <div className="bg-white shadow rounded-lg p-6">
               <h2 className="text-xl font-semibold mb-6">LegalEye Support</h2>
               {/* LegalEye content */}
+            </div>
+          )}
+          
+          {activeTab === 'supporters' && (
+            <div className="p-6">
+              <SupporterSection campaign={currentCampaign} />
+            </div>
+          )}
+
+          {activeTab === 'signatures' && (
+            <div className="p-6">
+              <SignatureList campaignId={currentCampaign._id} />
             </div>
           )}
           

@@ -211,7 +211,7 @@ const campaignSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     supportType: { 
       type: String, 
-      enum: ['signature', 'donation', 'volunteer', 'share'] 
+      enum: ['signature', 'donation', 'volunteer', 'share', 'participation'] 
     },
     supportedAt: { type: Date, default: Date.now },
     isAnonymous: { type: Boolean, default: false },
