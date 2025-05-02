@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../Context/authContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ethers } from 'ethers';
 
 const AuthPage = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -11,6 +12,8 @@ const AuthPage = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [formError, setFormError] = useState('');
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isConnectingWallet, setIsConnectingWallet] = useState(false);
+  const [walletAddress, setWalletAddress] = useState('');
   const { login, register, error, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
@@ -99,6 +102,64 @@ const AuthPage = () => {
   const toggleMode = () => {
     setIsLogin(!isLogin);
     setFormError('');
+  };
+
+  const connectWallet = async () => {
+    setIsConnectingWallet(true);
+    try {
+      // Check if MetaMask is installed
+      if (!window.ethereum) {
+        throw new Error('Please install MetaMask to continue');
+      }
+
+      // Request account access
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      await provider.send("eth_requestAccounts", []);
+      const signer = provider.getSigner();
+      const address = await signer.getAddress();
+      
+      // Get the chain ID
+      const network = await provider.getNetwork();
+      const chainId = network.chainId;
+
+      // Check if we're on the correct network (e.g., Ethereum Mainnet)
+      if (chainId !== 1) { // 1 is Ethereum Mainnet
+        try {
+          // Request network switch to Ethereum Mainnet
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0x1' }], // '0x1' is Ethereum Mainnet
+          });
+        } catch (switchError) {
+          // Handle network switch error
+          throw new Error('Please switch to Ethereum Mainnet');
+        }
+      }
+
+      setWalletAddress(address);
+      
+      // Sign a message to verify ownership
+      const message = `Welcome to Civic Platform!\n\nPlease sign this message to verify your wallet ownership.\n\nThis request will not trigger a blockchain transaction or cost any gas fees.\n\nWallet address: ${address}\nTimestamp: ${Date.now()}`;
+      
+      const signature = await signer.signMessage(message);
+      
+      // Here you can send the address and signature to your backend
+      // for verification and login/registration
+      const result = await login({
+        walletAddress: address,
+        signature: signature,
+        message: message
+      });
+
+      if (result.success) {
+        navigate('/dashboard');
+      }
+
+    } catch (error) {
+      setFormError(error.message || 'Failed to connect wallet');
+    } finally {
+      setIsConnectingWallet(false);
+    }
   };
 
   return (
@@ -476,6 +537,23 @@ const AuthPage = () => {
                   <path d="M12 0c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm3 8h-1.35c-.538 0-.65.221-.65.778v1.222h2l-.209 2h-1.791v7h-3v-7h-2v-2h2v-2.308c0-1.769.931-2.692 3.029-2.692h1.971v3z" />
                 </svg>
                 Facebook
+              </motion.button>
+              <motion.button 
+                onClick={connectWallet}
+                disabled={isConnectingWallet}
+                whileHover={{ scale: 1.03, backgroundColor: "#f8f8f8" }}
+                whileTap={{ scale: 0.97 }}
+                className="col-span-2 flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black transition-all duration-200"
+              >
+                {isConnectingWallet ? (
+                  <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                ) : (
+                  <img src="https://raw.githubusercontent.com/MetaMask/brand-resources/master/SVG/metamask-fox.svg" className="h-5 w-5 mr-2" alt="MetaMask" />
+                )}
+                {isConnectingWallet ? 'Connecting...' : 'Connect with MetaMask'}
               </motion.button>
             </div>
           </motion.div>

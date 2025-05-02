@@ -68,15 +68,32 @@ export const AuthProvider = ({ children }) => {
     setError(null);
     
     try {
-      const response = await axios.post(`${API_URL}/users/login`, credentials);
-      
-      // Save token and set current user
-      const { token, user } = response.data;
-      localStorage.setItem('token', token);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      setCurrentUser(user);
-      
-      return { success: true, data: user };
+      // Check if it's a wallet login
+      if (credentials.walletAddress) {
+        const response = await axios.post(`${API_URL}/users/wallet-login`, {
+          address: credentials.walletAddress,
+          signature: credentials.signature,
+          message: credentials.message
+        });
+        
+        // Save token and set current user
+        const { token, user } = response.data;
+        localStorage.setItem('token', token);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        setCurrentUser(user);
+        
+        return { success: true, data: user };
+      } else {
+        // Existing email/password login logic
+        const response = await axios.post(`${API_URL}/users/login`, credentials);
+        
+        const { token, user } = response.data;
+        localStorage.setItem('token', token);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        setCurrentUser(user);
+        
+        return { success: true, data: user };
+      }
     } catch (err) {
       const errorMessage = err.response?.data?.message || 'Login failed';
       setError(errorMessage);
