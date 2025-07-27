@@ -2,7 +2,8 @@ import React from 'react';
 import { 
   FaTag, FaMapMarkerAlt, FaVrCardboard, FaLightbulb, 
   FaHandHoldingHeart, FaUsers, FaNewspaper, FaExclamationCircle,
-  FaCalendarAlt, FaBuilding, FaCheckCircle, FaLink, FaChartLine
+  FaCalendarAlt, FaBuilding, FaCheckCircle, FaLink, FaChartLine,
+  FaUserCircle, FaEnvelope, FaUsersCog, FaShareAlt, FaExclamationTriangle, FaUpload, FaComments, FaUserPlus
 } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 
@@ -165,6 +166,66 @@ const CampaignTimeline = ({ campaign }) => {
   );
 };
 
+const OrganizerCard = ({ organizer }) => {
+  if (!organizer) return null;
+  return (
+    <div className="flex items-center bg-white shadow rounded-lg p-4 mb-6 border border-gray-100">
+      <img
+        src={organizer.profilePicture || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(organizer.fullName || organizer.email || 'User')}
+        alt={organizer.fullName || organizer.email}
+        className="w-14 h-14 rounded-full object-cover border-2 border-indigo-200 mr-4"
+      />
+      <div className="flex-1">
+        <div className="font-bold text-lg text-gray-800 flex items-center">
+          <FaUserCircle className="mr-2 text-indigo-500" />
+          {organizer.fullName || 'Organizer'}
+        </div>
+        <div className="text-gray-500 text-sm flex items-center">
+          <FaEnvelope className="mr-1 text-gray-400" />
+          {organizer.email}
+        </div>
+        {/* Add more info if needed, e.g. role, bio */}
+      </div>
+      {/* Past campaigns (if available) */}
+      {organizer.campaignsCreated && organizer.campaignsCreated.length > 0 && (
+        <div className="ml-6">
+          <div className="font-semibold text-sm text-gray-700 mb-1">Past Campaigns:</div>
+          <ul className="text-xs text-indigo-600 space-y-1">
+            {organizer.campaignsCreated.slice(0, 3).map((c, i) => (
+              <li key={i}>
+                <a href={`/campaigns/${c._id}`} className="hover:underline">{c.title || 'Campaign'}</a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const ActionsSection = ({ onJoin, onSupport, onShare, onReport, onUpload, onChat }) => (
+  <div className="flex flex-wrap gap-3 mb-6">
+    <button onClick={onJoin} className="flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium shadow">
+      <FaUserPlus className="mr-2" /> Join Campaign
+    </button>
+    <button onClick={onSupport} className="flex items-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium shadow">
+      <FaHandHoldingHeart className="mr-2" /> Support
+    </button>
+    <button onClick={onShare} className="flex items-center bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium shadow">
+      <FaShareAlt className="mr-2" /> Share
+    </button>
+    <button onClick={onReport} className="flex items-center bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium shadow">
+      <FaExclamationTriangle className="mr-2" /> Report Issue
+    </button>
+    <button onClick={onUpload} className="flex items-center bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg font-medium shadow">
+      <FaUpload className="mr-2" /> Upload Proof
+    </button>
+    <button onClick={onChat} className="flex items-center bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-lg font-medium shadow">
+      <FaComments className="mr-2" /> Volunteer Chat
+    </button>
+  </div>
+);
+
 const OverviewSection = ({ campaign, onVisualizeLocation }) => {
   if (!campaign) return null;
   
@@ -187,8 +248,29 @@ const OverviewSection = ({ campaign, onVisualizeLocation }) => {
   
   const locationString = formatLocation(campaign.location);
   
+  // Organizer info (from createdBy)
+  const organizer = campaign.createdBy || null;
+  // Action handlers (stubbed for now)
+  const handleJoin = () => alert('Join Campaign clicked!');
+  const handleSupport = () => alert('Support clicked!');
+  const handleShare = () => alert('Share clicked!');
+  const handleReport = () => alert('Report Issue clicked!');
+  const handleUpload = () => alert('Upload Proof clicked!');
+  const handleChat = () => alert('Volunteer Chat clicked!');
+  
   return (
     <div className="space-y-6">
+      {/* Organizer Card */}
+      <OrganizerCard organizer={organizer} />
+      {/* Actions Section */}
+      <ActionsSection
+        onJoin={handleJoin}
+        onSupport={handleSupport}
+        onShare={handleShare}
+        onReport={handleReport}
+        onUpload={handleUpload}
+        onChat={handleChat}
+      />
       <div className="bg-white shadow-sm rounded-xl overflow-hidden">
         <div className="p-6">
           <h2 className="text-2xl font-bold mb-4 text-gray-800 flex items-center">
