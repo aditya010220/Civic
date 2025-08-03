@@ -4,8 +4,11 @@ import axios from 'axios';
 // Create auth context
 const AuthContext = createContext(null);
 
-// API base URL
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+// API base URL - automatically detect production vs development
+const API_URL = import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD
+    ? 'https://your-backend-domain.com/api'  // Replace with your actual backend URL
+    : 'http://localhost:4000/api');
 
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
