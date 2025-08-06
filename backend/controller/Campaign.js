@@ -1,7 +1,7 @@
 import Campaign from '../models/campaign.js';
 import CampaignTeam from '../models/campaignTeam.js';
-import CampaignVictim from '../models/CompaignVictim.js';
-import CampaignEvidence from '../models/CampaignEvidence.js';
+import CampaignVictim from '../models/campaignVictim.js';
+import CampaignEvidence from '../models/campaignEvidence.js';
 import cloudinary from '../config/cloudinary.js';
 import { uploadToBlob, deleteFromBlob } from '../config/vercelBlob.js';
 import { validateEvidence } from '../config/gemini.js'; // Keep if you have this service
