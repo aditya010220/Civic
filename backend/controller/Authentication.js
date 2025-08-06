@@ -1,7 +1,7 @@
 import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import Campaign from '../models/Campaign.js';
+import Campaign from '../models/campaign.js';
 import mongoose from 'mongoose';
 import transporter from '../config/nodemailer.js'; // Import the configured transporter
 
